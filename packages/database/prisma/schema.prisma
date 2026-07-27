@@ -1,0 +1,79 @@
+// Prisma 7. Two things differ from every v6 tutorial you will find:
+//
+//   1. `datasource` has NO `url` field. Connection URLs moved to prisma.config.ts.
+//   2. The generator is `prisma-client` (not `prisma-client-js`, now deprecated)
+//      and `output` is REQUIRED.
+
+generator client {
+  provider = "prisma-client"
+
+  // Output is a DIRECTORY; the generator writes client.ts inside it, so the
+  // import path is "./generated/client" (see src/index.ts).
+  output   = "../src/generated"
+
+  // The only runtime consumer of this client is the NestJS backend, which
+  // compiles to CommonJS. Setting these three explicitly matters: `moduleFormat`
+  // and `importFileExtension` both default to "inferred from environment",
+  // which is not something a template should leave to chance.
+  // "" means bare/extensionless imports, which is what `module: CommonJS`
+  // under tsc needs to resolve the generated files' internal imports.
+  moduleFormat           = "cjs"
+  generatedFileExtension = "ts"
+  importFileExtension    = ""
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid(7))
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categories Category[]
+  expenses   Expense[]
+
+  @@map("users")
+}
+
+model Category {
+  id        String   @id @default(uuid(7))
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expenses Expense[]
+
+  @@unique([userId, name])
+  @@map("categories")
+}
+
+model Expense {
+  id          String   @id @default(uuid(7))
+  // Decimal, never Float — binary floats cannot represent 0.10 exactly and the
+  // rounding errors compound. Note this serializes to a STRING over JSON.
+  amount      Decimal  @db.Decimal(12, 2)
+  description String?
+  spentAt     DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Deleting a category keeps its expenses and just unlinks them.
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId, spentAt])
+  @@index([categoryId])
+  @@map("expenses")
+}

@@ -1,0 +1,8 @@
+{
+  "$comment": "Editor-convenience config only. Each workspace package has its own tsconfig and is typechecked independently via `turbo run typecheck`. Deliberately NOT a project-references solution file — that would force `composite`/`declaration` onto every package.",
+  "extends": "./packages/typescript-config/base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "exclude": ["node_modules", "**/node_modules", "**/dist", "**/.next", "**/src/generated"]
+}

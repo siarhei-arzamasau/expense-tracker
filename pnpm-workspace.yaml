@@ -1,0 +1,17 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 10+ blocks dependency postinstall/build scripts by default. Without this
+# allowlist the install SUCCEEDS but leaves the project broken at runtime:
+# Prisma never generates its client, argon2 has no native binary, and Tailwind's
+# oxide engine is missing. Add a package here only after checking why it needs a
+# build step.
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@tailwindcss/oxide"
+  - argon2
+  - esbuild
+  - prisma
+  - sharp
+  - unrs-resolver

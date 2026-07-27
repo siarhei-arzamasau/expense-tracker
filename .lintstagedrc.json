@@ -1,0 +1,5 @@
+{
+  "*.{ts,tsx,mjs,js}": ["prettier --write", "eslint --fix"],
+  "*.{json,md,yaml,yml,css}": ["prettier --write"],
+  "*.prisma": ["pnpm --filter @expense-tracker/database exec prisma format --schema"]
+}

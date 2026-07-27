@@ -1,0 +1,25 @@
+{
+  "name": "@expense-tracker/eslint-config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "files": ["base.mjs", "nest.mjs"],
+  "exports": {
+    "./base": "./base.mjs",
+    "./nest": "./nest.mjs"
+  },
+  "dependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-turbo": "^2.10.7",
+    "globals": "^17.8.0",
+    "typescript-eslint": "^8.65.0"
+  },
+  "devDependencies": {
+    "eslint": "^10.8.0"
+  },
+  "peerDependencies": {
+    "eslint": "^10.0.0"
+  }
+}

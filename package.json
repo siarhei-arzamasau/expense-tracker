@@ -1,0 +1,38 @@
+{
+  "name": "expense-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Expense tracker monorepo — Next.js frontend, NestJS backend, PostgreSQL via Prisma",
+  "packageManager": "pnpm@11.15.1",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md,yaml,yml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,yaml,yml}\"",
+    "db:generate": "pnpm --filter @expense-tracker/database db:generate",
+    "db:migrate": "pnpm --filter @expense-tracker/database db:migrate",
+    "db:deploy": "pnpm --filter @expense-tracker/database db:deploy",
+    "db:studio": "pnpm --filter @expense-tracker/database db:studio",
+    "db:seed": "pnpm --filter @expense-tracker/database db:seed",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@expense-tracker/eslint-config": "workspace:*",
+    "@expense-tracker/typescript-config": "workspace:*",
+    "@types/node": "^24.13.3",
+    "eslint": "^10.8.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.2.0",
+    "prettier": "^3.9.6",
+    "turbo": "^2.10.7",
+    "typescript": "^5.9.3"
+  }
+}

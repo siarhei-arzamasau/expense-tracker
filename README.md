@@ -18,6 +18,8 @@ expense-tracker/
     └── typescript-config/ @expense-tracker/typescript-config
 ```
 
+`@expense-tracker/eslint-config` exports **`base` and `nest`** only. Next's rules are composed in `apps/frontend/eslint.config.mjs` directly from `eslint-config-next`, the way `create-next-app` does it — `eslint-config-next` is version-locked to Next itself, so pulling it into a shared package would couple every package's lint to the frontend's framework version.
+
 `packages/database` is a dependency of **`apps/backend` only**. The frontend talks to the backend over HTTP and imports types from `packages/shared` — it never touches Prisma.
 
 ## Setup
@@ -68,6 +70,18 @@ Run from the repo root; Turborepo fans them out in dependency order.
 **Prisma 7 changed two things that break v6-shaped configs.** The connection URL is no longer in `schema.prisma` — it lives in `packages/database/prisma.config.ts`. And Prisma no longer auto-loads `.env`, which is why that file starts with `import "dotenv/config"`. Deleting that line makes every `prisma` command fail to find `DATABASE_URL`.
 
 **`pnpm-workspace.yaml` has an `onlyBuiltDependencies` allowlist.** pnpm 10+ blocks dependency build scripts by default. Without the allowlist, `pnpm install` *succeeds* but leaves Prisma ungenerated, argon2 without a binary, and Tailwind without its oxide engine.
+
+**If `pnpm build` fails inside `packages/database/src/generated/`, that is not your code.** The Prisma 7 `prisma-client` generator emits **TypeScript source**, and `packages/database` compiles it with our `strict` config. `skipLibCheck` will not help — it only applies to `.d.ts` files, and these are `.ts`. If the generated client trips a strict rule, relax it for that directory only, in `packages/database/tsconfig.json`:
+
+```jsonc
+// Add alongside the existing compilerOptions
+"exclude": ["node_modules", "dist", "prisma"],
+// …and if needed, a second pass that skips strict checks on generated code:
+// "compilerOptions": { "strict": false }  ← last resort; prefer the generator's
+// `compilerBuild` option or narrowing the rule that actually fails.
+```
+
+Do not "fix" the generated files — they are overwritten by the next `pnpm db:generate`.
 
 **Money is `Decimal` in Postgres and `string` in JSON.** `Expense.amount` is `Decimal(12, 2)`; Prisma serializes it to a string over the wire. `ExpenseDto.amount` in `packages/shared` is therefore typed `string`. Parse it at the display boundary — treating it as a `number` gets you `NaN`.
 

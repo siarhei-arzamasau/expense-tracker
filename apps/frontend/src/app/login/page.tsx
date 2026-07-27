@@ -10,8 +10,10 @@ import { z } from "zod";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { authStorage } from "@/lib/auth-storage";
 
+// z.string().email() rather than Zod 4's newer top-level z.email(): it is valid
+// in both Zod 3 and 4, so bumping zod either direction will not break this file.
 const loginSchema = z.object({
-  email: z.email("Enter a valid email address"),
+  email: z.string().email("Enter a valid email address"),
   password: z.string().min(1, "Password is required"),
 });
 

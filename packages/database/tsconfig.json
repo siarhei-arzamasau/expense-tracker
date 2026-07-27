@@ -2,7 +2,11 @@
   "extends": "@expense-tracker/typescript-config/library.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    // .d.ts is required — apps/backend typechecks against PrismaClient — but
+    // declaration maps into generated code are noise, and the Prisma client is
+    // large enough that emitting them measurably slows every build.
+    "declarationMap": false
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "prisma"]

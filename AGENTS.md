@@ -12,6 +12,17 @@ Keep `AGENTS.md` and `CLAUDE.md` synchronized. Whenever guidance is added, chang
 
 Two things this rule does not do. It does not ask you to rewrite existing Russian text you happen to read — the `PasswordResetToken.tokenHash` doc comment in `schema.prisma` is in Russian and stays that way, because it is a dated record of a past decision; a plan or doc quoting a schema comment quotes it verbatim rather than translating it, so that the quote keeps matching the code. And it does not apply to user-facing product strings, which follow whatever the feature requires.
 
+## Git branches
+
+Use GitHub Flow for all repository changes:
+
+- `main` is the only long-lived branch and must remain deployable. Do not commit feature work directly to it.
+- Start each change from an up-to-date `main` in a dedicated, short-lived branch.
+- Name branches `<type>/<short-kebab-case-description>`, using `feature`, `fix`, `docs`, `refactor`, `test`, or `chore` as the type; for example, `feature/frontend-homepage`.
+- Keep each branch focused on one coherent change. Bring `main` into the branch before merging when needed to resolve divergence.
+- Merge into `main` through a pull request only after the relevant checks pass and review is complete. Delete the branch after merge.
+- Do not introduce a `develop` branch or other long-lived integration branches unless the repository workflow is explicitly changed.
+
 ## Git commits
 
 **Commit messages follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).**

@@ -2,6 +2,7 @@
 name: commit
 description: Commit work to a branch in this repository — GitHub Flow branching and Conventional Commits 1.0.0 message rules. Use whenever creating a branch, staging changes, writing a commit message, or opening a pull request here.
 model: sonnet
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git branch:*), Bash(git checkout:*), Bash(git pull:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(gh pr create:*), Read, Grep, Glob
 ---
 
 # Commit to a branch

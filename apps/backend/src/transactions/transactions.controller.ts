@@ -22,10 +22,12 @@ import type {
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedUser } from "../auth/types";
+import { paginatedSchema } from "../common/swagger/paginated-schema";
 import { CreateTransactionDto } from "./dto/create-transaction.dto";
 import { FindTransactionsQueryDto } from "./dto/find-transactions-query.dto";
 import { TransactionSummaryQueryDto } from "./dto/transaction-summary-query.dto";
 import { UpdateTransactionDto } from "./dto/update-transaction.dto";
+import { TRANSACTION_SCHEMA } from "./transaction.schema";
 import { TransactionsService } from "./transactions.service";
 
 @ApiTags("transactions")
@@ -48,17 +50,7 @@ export class TransactionsController {
   @ApiOperation({ summary: "List the current user's paginated transactions, newest first" })
   @ApiOkResponse({
     description: "A page of transactions with pagination metadata",
-    schema: {
-      type: "object",
-      required: ["items", "page", "pageSize", "totalItems", "totalPages"],
-      properties: {
-        items: { type: "array", items: { type: "object" } },
-        page: { type: "integer", example: 1 },
-        pageSize: { type: "integer", example: 10 },
-        totalItems: { type: "integer", example: 23 },
-        totalPages: { type: "integer", example: 3 },
-      },
-    },
+    schema: paginatedSchema(TRANSACTION_SCHEMA),
   })
   findAll(
     @CurrentUser() user: AuthenticatedUser,

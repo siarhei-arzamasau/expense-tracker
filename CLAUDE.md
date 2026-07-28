@@ -2,9 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Workspace-specific guidance lives next to the code it governs:
+
+- `apps/backend/CLAUDE.md` — NestJS, Prisma access, CQRS, DTOs, Swagger, Jest.
+- `apps/frontend/CLAUDE.md` — Next.js, React Query, filters and paging, auth session handling, Vitest.
+
+What stays here is what is true across the whole repository.
+
 ## Guidance synchronization
 
-Keep `AGENTS.md` and `CLAUDE.md` synchronized. Whenever guidance is added, changed, or removed in either file, apply the equivalent change to the other file in the same task.
+Keep `AGENTS.md` and `CLAUDE.md` synchronized. Whenever guidance is added, changed, or removed in either file, apply the equivalent change to the other file in the same task. This applies to every pair in the repository: the root files, `apps/backend/{AGENTS,CLAUDE}.md`, and `apps/frontend/{AGENTS,CLAUDE}.md`.
+
+Put a rule in the workspace file when it only makes sense inside that workspace, and here when it spans more than one. Do not duplicate a rule into both levels.
 
 ## Output language
 
@@ -69,20 +78,9 @@ Run from the repo root; Turborepo fans out in dependency order.
 | `pnpm test`                                                 | backend Jest specs and frontend Vitest specs             |
 | `pnpm db:migrate` / `db:generate` / `db:seed` / `db:studio` | proxied to `packages/database`                           |
 
-Scoping to one package uses `pnpm --filter <name> <script>`, e.g. `pnpm --filter @expense-tracker/backend build`.
+Scoping to one package uses `pnpm --filter <name> <script>`, e.g. `pnpm --filter @expense-tracker/backend build`. Running a single test differs per workspace — see the workspace `CLAUDE.md` files.
 
-**Single test:**
-
-```bash
-pnpm --filter @expense-tracker/backend exec jest transactions.service  # by file
-pnpm --filter @expense-tracker/backend exec jest -t "Decimal amounts"  # by test name
-pnpm --filter @expense-tracker/backend test:e2e                        # needs a live DB
-pnpm --filter @expense-tracker/frontend exec vitest transaction-filters # frontend, by file
-```
-
-`pnpm test` deliberately excludes e2e — `test/app.e2e-spec.ts` boots the real `AppModule` and requires Postgres running and migrated.
-
-**The two workspaces use different runners on purpose.** The backend is Jest via `ts-jest`, matching the CommonJS output Nest compiles to. The frontend is Vitest, because it is ESM and uses the Next.js `@/*` alias, which `vitest.config.ts` re-declares. Frontend coverage is scoped to `src/lib/**/*.spec.ts` — pure functions, `environment: "node"`, no DOM. There is no jsdom and no testing-library; adding component tests is a deliberate decision, not a drive-by.
+**The two workspaces use different runners on purpose**: Jest on the backend, Vitest on the frontend. `pnpm test` deliberately excludes backend e2e, which needs Postgres running and migrated.
 
 Seeded login: `demo@example.com` / `password123`.
 
@@ -96,10 +94,6 @@ Seeded login: `demo@example.com` / `password123`.
 
 **`PaginatedResponse<T>` lives in `packages/shared/src/types/pagination.ts`, not beside `TransactionDto`.** It is the envelope for every paginated endpoint, so the second one should not have to import a transaction module to describe its own response. `totalPages` is `Math.ceil(totalItems / pageSize)` and is therefore **0**, not 1, for an empty result set — render the pager from `totalPages > 1`, never from a truthiness check.
 
-**`AuthModule` reaches users only through the CQRS buses.** `apps/backend/src/users/commands/` and `queries/` are the users module's entire public surface — `UsersModule` deliberately has no `exports`, and `AuthService` injects `CommandBus`/`QueryBus` instead of `UsersService`. That is why `AuthService` contains no Prisma and no argon2: hashing, uniqueness and storage all live behind `UsersService`, which no other module can name. Adding `exports: [UsersService]` would quietly dissolve the boundary; add a command or query instead. Note this pattern is scoped to users — `CategoriesService` and `TransactionsService` still inject `PrismaService` directly, and were left that way on purpose.
-
-**`transactionCount` lives on `CategoryListItemDto`, not on `CategoryDto`.** `GET /api/categories` returns the extended type; every other place a category appears returns the flat one. The reason is that `TransactionDto` embeds a copy of its category which `TransactionsService.toDto` assembles by hand, so a required count on `CategoryDto` would force a wasted per-transaction aggregate. Related: that hand-assembled copy means the `CategoryRecord` shape is duplicated in both services, so adding a column to `Category` ripples through the schema, `packages/shared`, and each copy — `tsc` will say so, but expect more than one file.
-
 ## Constraints that look like mistakes but are not
 
 **TypeScript is pinned to `^5.9.3` while `latest` is 7.x.** `ts-jest` declares
@@ -111,11 +105,8 @@ tracks the Node 24 runtime.
 `oxlint.config.ts` loads `eslint-plugin-turbo` through Oxlint's alpha JavaScript-plugin bridge.
 Keep the dependency and expect bridge compatibility to need verification on upgrades.
 
-**Oxlint type-aware linting is disabled, and `typescript/consistent-type-imports` is explicitly
-off for NestJS.** Its autofix can rewrite `import { PrismaService }` into `import type`, erasing
-the `emitDecoratorMetadata` Nest's DI reads at runtime; the backend then dies at boot with
-"Nest can't resolve dependencies." Use value imports for anything in a constructor signature
-or `@Body()` parameter regardless.
+**Oxlint type-aware linting is disabled repository-wide.** The backend additionally turns off
+`typescript/consistent-type-imports` for a NestJS-specific reason — see `apps/backend/CLAUDE.md`.
 
 **Prisma 7 differs from every v6 tutorial in three ways.** The `datasource` block has no `url` — connection URLs live in `packages/database/prisma.config.ts`. Prisma no longer auto-loads `.env`, and a bare `import "dotenv/config"` is insufficient because the CLI's cwd is `packages/database` while `.env` is at the repo root; `prisma.config.ts` resolves it explicitly. And **`new PrismaClient()` with no options throws** — v7 requires a driver adapter. Go through `createPrismaClient()` / `createPgAdapter()` in `packages/database/src/client.ts`, which is the single place `@prisma/adapter-pg` is wired; `PrismaService` passes the adapter via `super()`. The generator sets `output`, `moduleFormat`, and `importFileExtension` explicitly because the latter two otherwise default to "inferred from environment."
 
@@ -123,41 +114,16 @@ or `@Body()` parameter regardless.
 
 **`pnpm-workspace.yaml` uses `allowBuilds` (a map), NOT pnpm 10's `onlyBuiltDependencies` (a list).** pnpm 11 renamed it and silently ignores the old key, so an install that should have been gated instead _reports success_ while leaving Prisma without engines and argon2 without a native binary. The tell is `ERR_PNPM_IGNORED_BUILDS` in the install output. Add an entry here when introducing a dependency with a postinstall step.
 
-**`ConfigModule`'s `envFilePath` is anchored to `__dirname`, not a relative string.** cwd differs between `turbo dev` (cwd = `apps/backend`) and `pnpm --filter @expense-tracker/backend start:prod` from the root.
-
-**Money is `Decimal(12, 2)` in Postgres and a `string` over JSON.** `TransactionDto.amount` is typed `string` on purpose — Prisma serializes Decimal to a string to avoid float drift. Parse only at the display boundary (`apps/frontend/src/lib/format.ts`); arithmetic on it elsewhere silently produces wrong money. Service layer converts input with `.toFixed(2)` rather than passing raw JS numbers to Prisma.
-
-**`app.module.ts` registers `CqrsModule.forRoot()`, not a bare `CqrsModule`.** Only the dynamic form is marked `global: true`; the plain class is a normal module every consumer would have to import. "Simplifying" it back to `CqrsModule` costs nothing at compile time and fails at boot with `Nest can't resolve CommandBus`. Related: `CqrsModule` discovers handlers in `onApplicationBootstrap`, so a testing module must `await moduleRef.init()` before any bus call — `compile()` alone leaves the buses empty and every `execute()` throws `CommandHandlerNotFoundException`.
+**Money is `Decimal(12, 2)` in Postgres and a `string` over JSON.** `TransactionDto.amount` is typed `string` on purpose — Prisma serializes Decimal to a string to avoid float drift. Parse only at the display boundary (`apps/frontend/src/lib/format.ts`); arithmetic on it elsewhere silently produces wrong money. The service layer converts input with `.toFixed(2)` rather than passing raw JS numbers to Prisma.
 
 **`20260728035150_rename_password_to_password_hash/migration.sql` is hand-written, and column renames generally have to be.** `prisma migrate dev` renders a rename as `DROP COLUMN` + `ADD COLUMN`, which destroys every stored hash, and then refuses to run at all because the environment is non-interactive and it wants confirmation for the data loss. The file contains `ALTER TABLE "users" RENAME COLUMN` instead, applied with `prisma migrate deploy`. `.oxfmtrc.jsonc` exempts `packages/database/prisma/migrations`, so hand-edited SQL stays as written.
 
-**`Category.icon` is validated by grapheme count (`IsSingleEmoji`), never by `@MaxLength`.** `class-validator` measures UTF-16 code units and `"👨‍👩‍👧‍👦".length === 11`, so any length cap rejects most real emoji. `categories/validators/is-single-emoji.ts` segments with `Intl.Segmenter` and requires exactly one cluster. `\p{Regional_Indicator}` is in the alternation on purpose: flags (🇺🇸) are one grapheme but are _not_ `Extended_Pictographic` and would otherwise be refused. Keycaps (1️⃣) stay rejected — that is a digit plus a combining frame, which is not what an icon field wants.
-
 **Build failures inside `packages/database/src/generated/` are not user code.** The Prisma client ships as TypeScript source and compiles under our `strict` config; `skipLibCheck` does not apply because these are `.ts`, not `.d.ts`. Never edit those files — `pnpm db:generate` overwrites them.
-
-**`PasswordResetToken.tokenHash` is a SHA-256 digest, not an argon2 hash.** Next to `passwordHash` this looks like an inconsistency; it isn't. argon2 salts each hash independently, so finding a row by a raw token would mean `argon2.verify` against every row in the table. The token is 32 random bytes from `crypto.randomBytes` — unguessable on its own — so it doesn't need a slow KDF, and SHA-256 being deterministic is what lets the column carry `@unique` and be found with one indexed lookup (`UsersService.hashToken`, `PasswordResetTokenRepository.findByTokenHash`).
-
-**shadcn/ui is installed but only used under `apps/frontend/src/app/{login,forgot-password,reset-password,terms,privacy}`.** `/categories` and `/transactions` stay on their pre-existing hand-written Tailwind classes — that split is intentional (see `2026-07-28-category-management.md`, which rejected installing shadcn for that feature as scope creep, and `2026-07-28-auth-pages.md`, where the auth pages' own requirement asked for shadcn components). Don't "clean up" the inconsistency by migrating one side to match the other outside of a task that asks for it.
-
-**Never pass your own `id` to a Radix `Dialog.Content`.** Radix generates one, points the trigger's `aria-controls` at it, and spreads caller props _last_ — so your id silently wins and leaves that `aria-controls` addressing an element that no longer exists, which is worse for a screen reader than having written nothing. The same ordering is why `aria-describedby={undefined}` is the supported way to say "this dialog has no description" (`app-shell.tsx`).
-
-**Swagger reflects over classes, and several response types here are plain interfaces from `packages/shared`.** `GET /api/transactions` returns `PaginatedResponse<TransactionDto>` — a generic over two interfaces — so `getSchemaPath()` has nothing to point at and the schema is hand-written: `paginatedSchema()` in `common/swagger/` for the envelope, `TRANSACTION_SCHEMA` in `transactions/` for the item. Hand-written means it can drift; when a field is added to `TransactionDto`, add it there too. Endpoints returning a decorated DTO class need none of this.
 
 ## Conventions
 
-- Every query and mutation is scoped by `userId`. Deletes use `deleteMany({ where: { id, userId } })` and check `count === 0` rather than `delete` + ownership lookup, so one user cannot touch another's rows. `TransactionsService.assertCategoryBelongsToUser` exists for the same reason.
-- A uniqueness check inside an update must exclude the row being edited — `if (existing && existing.id !== id)` in `CategoriesService.update`. `@@unique([userId, name])` makes the naive `create`-style check answer **409 for a save that did not rename anything**.
-- Partial updates distinguish "omitted" from "cleared" with the `...(dto.x !== undefined && { x: dto.x })` spread: `undefined` leaves the column alone, `null` clears it. For this to be typed rather than accidental, `color` and `icon` are declared `string | null` on **`CreateCategoryDto`** — `UpdateCategoryDto` is `PartialType(CreateCategoryDto)`, so the update side cannot be widened alone, and `apiClient.patch` takes an `unknown` body that would happily send a `null` no DTO admits.
-- Any category mutation must invalidate `["transactions"]` as well as `["categories"]` (`apps/frontend/src/app/(app)/categories/page.tsx`). `TransactionDto` carries a snapshot of its category, so without the second invalidation a renamed or recoloured category keeps rendering stale in the transactions table.
-- Transaction description, type, and category filters are server-side and page-aware. Their state lives in `/transactions` URL query parameters; changing a filter returns to page 1. Because that state is the address bar, it is untrusted input: `readTransactionQuery` in `lib/transaction-filters.ts` validates every parameter down to something the API accepts and drops the rest, rather than forwarding a hand-typed `?type=TRANSFER` and earning a 400. Category-name search remains client-side because the full category collection is already cached.
-- Any paginated list query sets `placeholderData: keepPreviousData`. Paging and filtering change the query key, and an unseen key resolves to `data: undefined` — which blanks the table _and_ unmounts the pager the reader just clicked, taking keyboard focus with it. `page` also has to be clamped when `totalPages` shrinks beneath it; the dashboard does this during render rather than in an effect, so the out-of-range page is never painted (Oxlint's `no-set-state-in-effect` will reject the effect form anyway).
-- `page` is capped at 10,000 by `FindTransactionsQueryDto`. The cap is a cost control, not a product rule: `skip` becomes a SQL `OFFSET`, which Postgres answers by walking and discarding every preceding row, so an unbounded `?page=` sells an arbitrarily expensive scan on an API with no rate limiting.
 - Formatting and linting policy lives at the repository root in `.oxfmtrc.jsonc` and
   `oxlint.config.ts`; package scripts should keep calling `oxlint .` so filtered linting works.
 - Route paths come from `API_ROUTES` in `packages/shared`, so a rename on one side is a type error on the other.
-- Auth is a bearer token in `localStorage`, no refresh rotation, no rate limiting — deliberate learning-template simplifications documented in the README, not oversights to silently "fix." The protected shell waits for `GET /auth/me` before rendering account content.
-- **Sessions end two ways and there is exactly one handler for each.** Voluntary — the logout buttons, account deletion — goes through `useLogout()` (`lib/use-logout.ts`): clear the token, clear the query cache, `router.replace("/login")`. Involuntary is any 401 on an authenticated request, which `api-client` turns into `authStorage.expire()`; `Providers` answers that event with a full `window.location.replace`, because an expired token can surface from anywhere and only a hard navigation reliably tears down what was mid-flight. Do not add a per-page "on 401, redirect" effect — the global handler already fired and the two only race each other. `AppShell` owns one redirect and only one: no token at all, where no request was ever made for anything to notice.
-- A new command or query handler must be added to `USERS_COMMAND_HANDLERS` / `USERS_QUERY_HANDLERS`. Forgetting is invisible to `tsc` and surfaces only as a runtime `CommandHandlerNotFoundException`; `users.cqrs.spec.ts` exists to catch it and is worth extending alongside any new message.
-- `RegisterUserCommand`, `ChangeUserPasswordCommand`, `DeleteUserCommand`, `ResetUserPasswordCommand` and `VerifyUserCredentialsQuery` carry plaintext passwords, and both buses hand every message to their publisher. The in-memory default discards it, but any logging or tracing publisher added later must redact those fields. `ResetUserPasswordCommand` also carries the raw reset `token` itself — a live single-use credential, not just a password — and that field needs redacting too. `RequestPasswordResetCommand` is the one exception worth noting explicitly: it carries only an email, never the raw reset token — see `RequestPasswordResetHandler`, which is deliberately the only non-thin handler in the users module because composing and logging the reset URL is the one place that raw token is allowed to exist outside `UsersService`.
-- `UsersRepository`'s "the one place the `users` table meets Prisma" claim has one exception: `UsersService.resetPassword`'s transaction writes `users` directly, because Prisma's interactive `$transaction` needs both of its writes on the same `tx` client and the repository's methods return already-settled promises, not the `PrismaPromise`s the array form of `$transaction` requires. If you're touching that method, keep the docstrings in `users.repository.ts` and `users.service.ts` in sync rather than re-hiding the exception.
-- `GetUserByIdQuery` resolves to `UserDto | null` rather than throwing, because the caller owns the status code: `GET /auth/me` must answer **401** for a token naming a deleted user, since the frontend clears its stored token on 401 and on nothing else (`ApiError.isUnauthorized`). A 404 there strands the client holding a token that can never work.
+- Adding a column to a model ripples through `schema.prisma`, `packages/shared`, and both apps. `tsc` will say so, but expect more than one file.
+- Auth is a bearer token in `localStorage`, no refresh rotation, no rate limiting — deliberate learning-template simplifications documented in the README, not oversights to silently "fix."

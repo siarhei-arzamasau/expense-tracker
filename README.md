@@ -61,7 +61,7 @@ Run from the repo root; Turborepo fans them out in dependency order.
 | `pnpm lint` / `pnpm format` | Oxlint / Oxfmt                    |
 | `pnpm lint:fix`             | Apply safe Oxlint fixes           |
 | `pnpm format:check`         | Check formatting without writing  |
-| `pnpm test`                 | Backend Jest suites               |
+| `pnpm test`                 | Backend Jest + frontend Vitest    |
 | `pnpm db:migrate`           | New migration from schema changes |
 | `pnpm db:studio`            | Prisma Studio                     |
 

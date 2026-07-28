@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Output language
+
+**Everything you produce is in English, whatever language the request arrives in.** Plans, code, comments, commit messages, documentation, PR descriptions, and chat replies — all English, including when the prompt, an issue, or a pasted spec is in Russian. Translate rather than mirror the input language.
+
+Two things this rule does not do. It does not ask you to rewrite existing Russian text you happen to read — several `.claude/.plans/` documents and a couple of schema comments are in Russian and stay that way, because they are dated records of past decisions. And it does not apply to user-facing product strings, which follow whatever the feature requires.
+
 ## Project state
 
 Expense tracker: Turborepo + pnpm workspaces, Next.js 16 frontend, NestJS 11 backend, PostgreSQL 17 via Prisma 7.

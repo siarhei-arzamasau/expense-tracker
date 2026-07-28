@@ -1,99 +1,99 @@
-# Страницы регистрации и входа на shadcn + сброс пароля
+# Registration and login pages on shadcn + password reset
 
-## Требование
+## Requirement
 
 > create plan for implementation of registration and log in page. For UI use shadcn components.
 > User should have possibility to register via email and password, also login via email and
 > password, and reset password if user forget it. On UI should be functionality to switch between
 > registration and login forms.
 
-Разбор по пунктам — важно, что три из четырёх пунктов на бэкенде **уже сделаны**:
+Breaking it down point by point — note that three of the four points are **already done** on the backend:
 
-| Пункт требования              | Бэкенд                                      | Фронтенд                 |
-| ----------------------------- | ------------------------------------------- | ------------------------ |
-| Регистрация по email + паролю | есть: `POST /api/auth/register`, не трогаем | новая форма              |
-| Вход по email + паролю        | есть: `POST /api/auth/login`, не трогаем    | переписывается на shadcn |
-| Переключение между формами    | —                                           | новое: `Tabs`            |
-| Сброс забытого пароля         | **нет вообще**: ни модели, ни эндпоинтов    | две новые страницы       |
+| Requirement item                 | Backend                                      | Frontend            |
+| -------------------------------- | -------------------------------------------- | ------------------- |
+| Registration by email + password | exists: `POST /api/auth/register`, untouched | new form            |
+| Login by email + password        | exists: `POST /api/auth/login`, untouched    | rewritten on shadcn |
+| Switching between the forms      | —                                            | new: `Tabs`         |
+| Resetting a forgotten password   | **absent entirely**: no model, no endpoints  | two new pages       |
 
-Единственная новая функциональность — сброс пароля. Всё остальное — UI поверх готового API.
+The only genuinely new functionality is the password reset. Everything else is UI over an existing API.
 
 ## Context
 
-`RegisterDto`, `LoginDto`, `AuthController`, путь через шины в `UsersService` с argon2 — всё это
-работает и покрыто тестами. Страница `/login` (`apps/frontend/src/app/login/page.tsx`, 99 строк)
-написана руками на инлайновых Tailwind-классах: `<input>`, `<button>`, `<label>` без компонентов.
+`RegisterDto`, `LoginDto`, `AuthController`, the path through the buses into `UsersService` with argon2 —
+all of it works and is covered by tests. The `/login` page (`apps/frontend/src/app/login/page.tsx`, 99 lines)
+is hand-written with inline Tailwind classes: `<input>`, `<button>`, `<label>`, no components.
 
-shadcn **сконфигурирован, но не установлен**: `apps/frontend/components.json` есть (стиль
-`new-york`, `baseColor: neutral`, `cssVariables: true`), все токены темы объявлены в
-`src/app/globals.css` (`:root` + `.dark` + `@theme inline`) — существующая страница входа уже
-пользуется `border-input`, `text-destructive`, `bg-primary`. При этом `src/components/ui/`
-содержит только `.gitkeep`. То есть **работы по CSS нет вообще**, нужен только `shadcn add`.
+shadcn is **configured but not installed**: `apps/frontend/components.json` exists (style
+`new-york`, `baseColor: neutral`, `cssVariables: true`), all the theme tokens are declared in
+`src/app/globals.css` (`:root` + `.dark` + `@theme inline`) — the existing login page already
+uses `border-input`, `text-destructive`, `bg-primary`. Meanwhile `src/components/ui/`
+contains only `.gitkeep`. So **there is no CSS work at all**; all that is needed is `shadcn add`.
 
-Сброса пароля нет ни в одном слое: в `schema.prisma` нет модели токена, в `AuthController` нет
-эндпоинтов, в проекте нет ни одной почтовой зависимости, а `docker-compose.yml` поднимает только
+Password reset is absent from every layer: `schema.prisma` has no token model, `AuthController` has no
+endpoints, the project has no mail dependency of any kind, and `docker-compose.yml` brings up only
 Postgres.
 
-## Ключевые решения (и почему)
+## Key decisions (and why)
 
-**Ссылка для сброса пишется в лог бэкенда, письма не отправляются.** Подтверждено пользователем.
-`POST /api/auth/forgot-password` логирует готовый URL через Nest `Logger`, разработчик копирует
-его из терминала. Ноль новых зависимостей, ноль новых сервисов в compose, токен вообще не уходит
-из процесса. Это ровно та же линия «осознанных упрощений учебного шаблона», что уже задокументирована
-в README для токена в `localStorage` и отсутствия rate limiting. Альтернатива с Mailpit + nodemailer
-рассматривалась и отклонена как расширение объёма.
+**The reset link is written to the backend log; no emails are sent.** Confirmed with the user.
+`POST /api/auth/forgot-password` logs the finished URL through the Nest `Logger`, and the developer copies
+it out of the terminal. Zero new dependencies, zero new services in compose, and the token never leaves
+the process. This is exactly the same line of "deliberate learning-template simplifications" already documented
+in the README for the token in `localStorage` and the absence of rate limiting. The Mailpit + nodemailer
+alternative was considered and rejected as scope creep.
 
-**Токен в ответе HTTP не возвращается.** Неаутентифицированный эндпоинт, выдающий любому желающему
-токен сброса пароля по чужому email, — это примитив для захвата аккаунта, качественно хуже всех
-упрощений, которые шаблон уже за собой признал.
+**The token is not returned in the HTTP response.** An unauthenticated endpoint that hands anyone who asks
+a password reset token for someone else's email is an account-takeover primitive, qualitatively worse than any
+of the simplifications the template has already owned up to.
 
-**`forgot-password` отвечает `204` независимо от того, есть такой email или нет.** В `AuthService.login`
-это решение уже принято и прокомментировано («одно сообщение и на неизвестный email, и на неверный
-пароль, чтобы ответ не раскрывал, какие email зарегистрированы»). Раскрыть базу email на новом
-эндпоинте означало бы сломать уже заявленное свойство системы.
+**`forgot-password` answers `204` whether or not the email exists.** In `AuthService.login`
+this decision is already made and commented ("one message for both an unknown email and a wrong
+password, so the response does not reveal which emails are registered"). Leaking the email base on a new
+endpoint would break a property the system already claims.
 
-**В колонке хранится SHA-256 токена, а не argon2-хэш.** Рядом с `passwordHash` это выглядит как
-ошибка, поэтому: токен — 32 случайных байта из `crypto.randomBytes`, он не угадывается, и медленный
-KDF ему не нужен. Решает другое: argon2 солит каждый хэш отдельно, поэтому **найти строку по токену**
-было бы можно только перебором всех строк с `argon2.verify` на каждой. SHA-256 детерминирован,
-поэтому колонка получает `@unique` и ищется одним индексным запросом.
+**The column stores a SHA-256 of the token, not an argon2 hash.** Next to `passwordHash` this looks like
+a mistake, so: the token is 32 random bytes from `crypto.randomBytes`, it is unguessable, and it does not need a slow
+KDF. It solves a different problem: argon2 salts each hash separately, so **finding a row by token**
+would only be possible by scanning every row with `argon2.verify` on each. SHA-256 is deterministic,
+which is what lets the column carry `@unique` and be found with a single indexed query.
 
-**Токен одноразовый за счёт удаления, а не колонки `usedAt`.** После успешного сброса все токены
-пользователя удаляются; при новом запросе сброса старые тоже удаляются, так что живая ссылка всегда
-одна. Колонка `usedAt` была бы мёртвым весом: состояния «использован» и «не существует» дают
-**одно и то же** сообщение об ошибке, различать их не нужно и не хочется.
+**The token is single-use by deletion, not by a `usedAt` column.** After a successful reset all of the user's
+tokens are deleted; on a new reset request the old ones are deleted too, so there is always exactly one live
+link. A `usedAt` column would be dead weight: the "used" and "does not exist" states produce
+**the same** error message, so there is no need — or desire — to distinguish them.
 
-**Сброс пароля — своя команда, `ChangeUserPasswordCommand` переиспользовать нельзя.** Та требует
-`currentPassword` (см. `UsersService.assertPassword`), а это именно то, чего у пользователя нет.
+**Password reset gets its own command; `ChangeUserPasswordCommand` cannot be reused.** That one requires
+`currentPassword` (see `UsersService.assertPassword`), which is precisely what the user does not have.
 
-**Ссылку составляет и логирует хендлер, а не `AuthService`, и через шину секрет не идёт.**
-`RequestPasswordResetCommand` возвращает `void`; `ConfigService` и `Logger` инжектятся в
-`RequestPasswordResetHandler`, сырой токен живёт только между `UsersService` и хендлером.
-Альтернатива — вернуть токен из команды и собирать URL в `AuthService` — отклонена по двум
-причинам: `AuthService` описан как «владеет токенами, и больше ничем», и там имеются в виду
-**JWT**, а не строки сброса; и любой publisher с логированием, добавленный на шину позже,
-получил бы токен сброса в сериализованном результате. Плата за это — хендлер перестаёт быть
-чистым тонким адаптером над `UsersService` и берёт на себя доставку; это осознанно, потому что
-«выдать ссылку сброса» — прикладной сценарий, и слой хендлеров ему ровно соответствует.
+**The handler composes and logs the link, not `AuthService`, and the secret never travels over the bus.**
+`RequestPasswordResetCommand` returns `void`; `ConfigService` and `Logger` are injected into
+`RequestPasswordResetHandler`, and the raw token lives only between `UsersService` and the handler.
+The alternative — returning the token from the command and assembling the URL in `AuthService` — was rejected for
+two reasons: `AuthService` is described as "owns tokens, and nothing else", and what is meant there is
+**JWTs**, not reset strings; and any logging publisher added to the bus later would receive the reset
+token in the serialised result. The price is that the handler stops being a purely thin adapter over
+`UsersService` and takes on delivery; that is deliberate, because "issue a reset link" is an
+application scenario, and the handler layer corresponds to it exactly.
 
-**Успешный сброс не выдаёт JWT.** Ответ `204`, фронтенд ведёт на `/login` с сообщением об успехе.
-Выдавать токен по ссылке из почты значит превращать ссылку в полноценный вход.
+**A successful reset does not issue a JWT.** The response is `204`, and the frontend leads to `/login` with a
+success message. Issuing a token off a link from an email would turn that link into a full login.
 
-**Переключение форм — `Tabs` внутри одного `Card` на существующем `/login`.** Маршрут переиспользуется,
-поэтому ссылка «Log in» в `src/app/page.tsx` продолжает работать. Страницы сброса всё равно нужны
-отдельными маршрутами — по ссылке из лога надо куда-то попасть, вкладкой это не выражается.
+**Form switching is `Tabs` inside a single `Card` on the existing `/login`.** The route is reused,
+so the "Log in" link in `src/app/page.tsx` keeps working. The reset pages still need to be
+separate routes — the link from the log has to lead somewhere, and a tab cannot express that.
 
-**Активная вкладка хранится в `useState`, а не в URL.** `useSearchParams` в клиентском компоненте
-Next 16 требует границы `Suspense`, и платить этим за возможность сослаться на вкладку регистрации
-незачем. На `/reset-password` `useSearchParams` неизбежен — там `Suspense` и будет (см. «Ловушки»).
+**The active tab is held in `useState`, not in the URL.** `useSearchParams` in a Next 16 client component
+requires a `Suspense` boundary, and paying that for the ability to link to the registration tab is not
+worth it. On `/reset-password` `useSearchParams` is unavoidable — `Suspense` will be there (see "Pitfalls").
 
-**shadcn ставится только под страницы аутентификации.** Это сознательный разворот решения из
-`2026-07-28-category-management.md` («Ставить shadcn ради этой фичи — расширение объёма»): теперь
-компоненты просит само требование. `/categories` (392 строки) и `/expenses` остаются на рукописных
-классах. В кодовой базе временно живут две идиомы — это граница объёма, а не недоделка;
-зафиксировать её в CLAUDE.md.
+**shadcn is installed for the authentication pages only.** This is a deliberate reversal of the decision in
+`2026-07-28-category-management.md` ("Installing shadcn for this feature would be scope creep"): this time
+the requirement itself asks for the components. `/categories` (392 lines) and `/expenses` stay on hand-written
+classes. Two idioms live in the codebase for the time being — that is a scope boundary, not an unfinished job;
+record it in CLAUDE.md.
 
-## Схема и миграция
+## Schema and migration
 
 ```prisma
 model PasswordResetToken {
@@ -113,17 +113,17 @@ model PasswordResetToken {
 }
 ```
 
-В `model User` добавляется обратная связь `passwordResetTokens PasswordResetToken[]`.
+`model User` gains the reverse relation `passwordResetTokens PasswordResetToken[]`.
 
-Миграция — обычная, генерируется целиком: `pnpm --filter @expense-tracker/database exec prisma
-migrate dev --name add_password_reset_tokens`. Руками SQL править **не нужно** — это добавление
-таблицы, а не переименование колонки (случай
-`20260728035150_rename_password_to_password_hash` не повторяется).
+The migration is an ordinary one, generated in full: `pnpm --filter @expense-tracker/database exec prisma
+migrate dev --name add_password_reset_tokens`. The SQL does **not** need hand-editing — this is adding a
+table, not renaming a column (the
+`20260728035150_rename_password_to_password_hash` case does not repeat).
 
-Время жизни — 60 минут, константой `PASSWORD_RESET_TTL_MINUTES` в `users.service.ts`. В env не
-выносится: в учебном шаблоне это значение не варьируется по окружениям.
+The lifetime is 60 minutes, as the `PASSWORD_RESET_TTL_MINUTES` constant in `users.service.ts`. It is not moved
+into env: in a learning template this value does not vary by environment.
 
-## Контракт типов — `packages/shared`
+## Type contract — `packages/shared`
 
 `src/types/auth.ts`:
 
@@ -138,64 +138,64 @@ export interface ResetPasswordInput {
 }
 ```
 
-`src/constants/api-routes.ts` — в блок `auth`:
+`src/constants/api-routes.ts` — into the `auth` block:
 
 ```ts
 forgotPassword: "auth/forgot-password",
 resetPassword: "auth/reset-password",
 ```
 
-Правила валидации сюда **не** дублируются (CLAUDE.md): они живут в `class-validator`-DTO на бэкенде
-и в zod-схемах на фронтенде.
+Validation rules are **not** duplicated here (CLAUDE.md): they live in the `class-validator` DTOs on the backend
+and in the zod schemas on the frontend.
 
-## Контракт сообщений
+## Message contract
 
-| Сообщение                     | Полезная нагрузка    | Результат | Исключения хендлера   |
-| ----------------------------- | -------------------- | --------- | --------------------- |
-| `RequestPasswordResetCommand` | `email`              | `void`    | —                     |
-| `ResetUserPasswordCommand`    | `token, newPassword` | `void`    | `BadRequestException` |
+| Message                       | Payload              | Result | Handler exceptions    |
+| ----------------------------- | -------------------- | ------ | --------------------- |
+| `RequestPasswordResetCommand` | `email`              | `void` | —                     |
+| `ResetUserPasswordCommand`    | `token, newPassword` | `void` | `BadRequestException` |
 
-`RequestPasswordResetCommand` возвращает `void` при любом исходе: неизвестный email — не ошибка,
-а один из двух нормальных путей. Внутри хендлера `UsersService.createPasswordResetToken` отдаёт
-`string | null` (по образцу `VerifyUserCredentialsQuery`), и хендлер сам решает — собрать URL и
-записать его в лог или записать пометку, что email неизвестен. Наружу разница не видна.
+`RequestPasswordResetCommand` returns `void` for every outcome: an unknown email is not an error
+but one of the two normal paths. Inside the handler, `UsersService.createPasswordResetToken` returns
+`string | null` (modelled on `VerifyUserCredentialsQuery`), and the handler itself decides whether to assemble a URL and
+write it to the log or to log a note that the email is unknown. From the outside the difference is invisible.
 
-`ResetUserPasswordCommand` **несёт пароль в открытом виде** и пополняет список из CLAUDE.md:
-любой publisher с логированием или трейсингом обязан редактировать это поле.
-`RequestPasswordResetCommand` в этот список не попадает — в ней только email, а токен на шину
-не выходит вовсе (см. «Ключевые решения»).
+`ResetUserPasswordCommand` **carries a plaintext password** and joins the CLAUDE.md list:
+any logging or tracing publisher is obliged to redact that field.
+`RequestPasswordResetCommand` does not join that list — it carries only an email, and the token never
+reaches the bus at all (see "Key decisions").
 
-Оба хендлера добавляются в `USERS_COMMAND_HANDLERS`
-(`src/users/commands/handlers/index.ts`). `tsc` пропуск не заметит — упадёт рантайм с
-`CommandHandlerNotFoundException`; ловит это `users.cqrs.spec.ts`.
+Both handlers are added to `USERS_COMMAND_HANDLERS`
+(`src/users/commands/handlers/index.ts`). `tsc` will not notice an omission — the runtime will fail with
+`CommandHandlerNotFoundException`; `users.cqrs.spec.ts` is what catches it.
 
-## Эндпоинты
+## Endpoints
 
-Оба **без** `JwtAuthGuard` — пользователь по определению не аутентифицирован.
+Both are **without** `JwtAuthGuard` — the user is by definition not authenticated.
 
-| Метод  | Путь                        | Тело                  | Ответ                             |
-| ------ | --------------------------- | --------------------- | --------------------------------- |
-| `POST` | `/api/auth/forgot-password` | `{ email }`           | `204` всегда                      |
-| `POST` | `/api/auth/reset-password`  | `{ token, password }` | `204`, либо `400` на плохой токен |
+| Method | Path                        | Body                  | Response                       |
+| ------ | --------------------------- | --------------------- | ------------------------------ |
+| `POST` | `/api/auth/forgot-password` | `{ email }`           | `204` always                   |
+| `POST` | `/api/auth/reset-password`  | `{ token, password }` | `204`, or `400` on a bad token |
 
-DTO — `class-validator`:
+The DTOs are `class-validator`:
 
 - `ForgotPasswordDto`: `@IsEmail()`
-- `ResetPasswordDto`: `@IsString() @Length(43, 43)` для `token` — `base64url` от 32 байт всегда
-  ровно 43 символа, так что границы известны точно и `{"token":"a"}` до запроса в базу не дойдёт;
-  для `password` —
-  `@MinLength(8) @MaxLength(72)` теми же сообщениями, что в `RegisterDto`, чтобы пароль, который
-  можно задать при регистрации, можно было задать и при сбросе
+- `ResetPasswordDto`: `@IsString() @Length(43, 43)` for `token` — `base64url` of 32 bytes is always
+  exactly 43 characters, so the bounds are known precisely and `{"token":"a"}` never reaches the database;
+  for `password` —
+  `@MinLength(8) @MaxLength(72)` with the same messages as in `RegisterDto`, so that a password which
+  can be set at registration can also be set at reset
 
-Одно сообщение на все причины отказа: `"Reset link is invalid or has expired"` — истёк, уже
-использован и никогда не существовал неразличимы.
+One message for every reason for refusal: `"Reset link is invalid or has expired"` — expired, already
+used and never existed are indistinguishable.
 
-## Файлы
+## Files
 
 **`packages/database`**
 
-- `prisma/schema.prisma` — модель `PasswordResetToken`, обратная связь в `User`
-- `prisma/migrations/<timestamp>_add_password_reset_tokens/migration.sql` — генерируется как есть
+- `prisma/schema.prisma` — the `PasswordResetToken` model, the reverse relation on `User`
+- `prisma/migrations/<timestamp>_add_password_reset_tokens/migration.sql` — generated as is
 
 **`packages/shared`**
 
@@ -204,90 +204,92 @@ DTO — `class-validator`:
 
 **`apps/backend`**
 
-- `src/auth/dto/forgot-password.dto.ts`, `src/auth/dto/reset-password.dto.ts` — новые
-- `src/auth/auth.controller.ts` — два `@Post` с `@HttpCode(HttpStatus.NO_CONTENT)`; DTO
-  импортируются **как значения** (`ValidationPipe` читает их из `emitDecoratorMetadata`)
-- `src/auth/auth.service.ts` — два метода-проброса на шину, `requestPasswordReset` и
-  `resetPassword`. Ни Prisma, ни argon2, ни `ConfigService`, ни `Logger` здесь не появляются:
-  сборка URL живёт в хендлере
-- `src/users/password-reset-token.repository.ts` — новый. Отдельный от `UsersRepository`, чья
-  docstring говорит «единственное место, где таблица `users` встречается с Prisma»:
+- `src/auth/dto/forgot-password.dto.ts`, `src/auth/dto/reset-password.dto.ts` — new
+- `src/auth/auth.controller.ts` — two `@Post`s with `@HttpCode(HttpStatus.NO_CONTENT)`; the DTOs
+  are imported **as values** (`ValidationPipe` reads them from `emitDecoratorMetadata`)
+- `src/auth/auth.service.ts` — two pass-through methods onto the bus, `requestPasswordReset` and
+  `resetPassword`. Neither Prisma, nor argon2, nor `ConfigService`, nor `Logger` appear here:
+  URL assembly lives in the handler
+- `src/users/password-reset-token.repository.ts` — new. Separate from `UsersRepository`, whose
+  docstring says "the one place where the `users` table meets Prisma":
   `create`, `findByTokenHash`, `deleteById`, `deleteAllForUser` + `interface PasswordResetTokenRecord`
-- `src/users/users.service.ts` — `createPasswordResetToken(email)` и `resetPassword(token, newPassword)`
-- `src/users/users.module.ts` — новый репозиторий в `providers` (в `exports` — нет, у модуля их нет)
-- `src/users/commands/request-password-reset.command.ts`, `reset-user-password.command.ts` — новые
-- `src/users/commands/handlers/request-password-reset.handler.ts` — новый; единственный хендлер,
-  который не является тонким адаптером: инжектит `ConfigService`, держит
-  `private readonly logger = new Logger(...)` и собирает `${WEB_APP_URL}/reset-password?token=…`
-- `src/users/commands/handlers/reset-user-password.handler.ts` — новый, тонкий адаптер
-- `src/users/commands/handlers/index.ts` — оба в `USERS_COMMAND_HANDLERS` и в реэкспорт
-- `src/users/users.service.spec.ts`, `src/users/users.cqrs.spec.ts`, `src/auth/auth.service.spec.ts` — дополняются
-- `test/app.e2e-spec.ts` — `204` на неизвестный email, `400` на мусорный токен
+- `src/users/users.service.ts` — `createPasswordResetToken(email)` and `resetPassword(token, newPassword)`
+- `src/users/users.module.ts` — the new repository in `providers` (not in `exports` — the module has none)
+- `src/users/commands/request-password-reset.command.ts`, `reset-user-password.command.ts` — new
+- `src/users/commands/handlers/request-password-reset.handler.ts` — new; the only handler
+  that is not a thin adapter: it injects `ConfigService`, holds a
+  `private readonly logger = new Logger(...)` and assembles `${WEB_APP_URL}/reset-password?token=…`
+- `src/users/commands/handlers/reset-user-password.handler.ts` — new, a thin adapter
+- `src/users/commands/handlers/index.ts` — both into `USERS_COMMAND_HANDLERS` and into the re-export
+- `src/users/users.service.spec.ts`, `src/users/users.cqrs.spec.ts`, `src/auth/auth.service.spec.ts` — extended
+- `test/app.e2e-spec.ts` — `204` for an unknown email, `400` for a garbage token
 
 **`apps/frontend`**
 
-- `package.json` — примитивы Radix, которые притянет `shadcn add`: нужны slot (button),
-  label (label, form) и tabs (tabs). **Точный список сверяем по выводу команды, а не по памяти:**
-  shadcn перешёл с отдельных `@radix-ui/react-*` на единый пакет `radix-ui`, и что именно
-  придёт, зависит от версии CLI. Остальное — `react-hook-form`, `zod`, `@hookform/resolvers`,
-  `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react` — **уже стоит**
-- `src/components/ui/{button,input,label,card,tabs,form,alert}.tsx` — генерируются CLI
-- `src/components/auth/login-form.tsx`, `src/components/auth/register-form.tsx` — новые.
-  Вынесены из страницы намеренно: `categories/page.tsx` разросся до 392 строк, повторять не надо
-- `src/lib/validation/auth.ts` — новый: zod-схемы всех четырёх форм в одном месте
-- `src/lib/queries/auth.ts` — новый: функции мутаций по образцу `lib/queries/categories.ts`
-- `src/app/login/page.tsx` — переписывается: `Card` + `Tabs`, формы из компонентов
-- `src/app/forgot-password/page.tsx`, `src/app/reset-password/page.tsx` — новые
-- `src/app/page.tsx` — подпись ссылки «Log in» → «Log in / Register»
-- `src/app/categories/page.tsx`, `src/app/expenses/page.tsx` — плюс `authStorage.clear()` перед
-  `router.push("/login")` на 401 (см. «Ловушки»), больше ничего
+- `package.json` — the Radix primitives `shadcn add` will pull in: slot (button),
+  label (label, form) and tabs (tabs) are needed. **Check the exact list against the command's output,
+  not from memory:** shadcn moved from separate `@radix-ui/react-*` packages to a single `radix-ui`
+  package, and what actually arrives depends on the CLI version. The rest — `react-hook-form`, `zod`,
+  `@hookform/resolvers`, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react` — is
+  **already installed**
+- `src/components/ui/{button,input,label,card,tabs,form,alert}.tsx` — generated by the CLI
+- `src/components/auth/login-form.tsx`, `src/components/auth/register-form.tsx` — new.
+  Extracted from the page deliberately: `categories/page.tsx` grew to 392 lines, no need to repeat that
+- `src/lib/validation/auth.ts` — new: the zod schemas for all four forms in one place
+- `src/lib/queries/auth.ts` — new: mutation functions modelled on `lib/queries/categories.ts`
+- `src/app/login/page.tsx` — rewritten: `Card` + `Tabs`, forms pulled from components
+- `src/app/forgot-password/page.tsx`, `src/app/reset-password/page.tsx` — new
+- `src/app/page.tsx` — the "Log in" link label → "Log in / Register"
+- `src/app/categories/page.tsx`, `src/app/expenses/page.tsx` — plus `authStorage.clear()` before
+  `router.push("/login")` on a 401 (see "Pitfalls"), nothing else
 
-**Корень**
+**Root**
 
 - `.env.example` — `WEB_APP_URL=http://localhost:3000`
-- `README.md` — флоу сброса и его упрощения
-- `CLAUDE.md` — решение про SHA-256 и граница «shadcn только в auth»
+- `README.md` — the reset flow and its simplifications
+- `CLAUDE.md` — the SHA-256 decision and the "shadcn in auth only" boundary
 
-Переиспользуется: `apiClient` / `ApiError` (`src/lib/api-client.ts`), `authStorage`,
-паттерн `useForm` + `zodResolver`, `PrismaService`, `UsersRepository`.
+Reused: `apiClient` / `ApiError` (`src/lib/api-client.ts`), `authStorage`,
+the `useForm` + `zodResolver` pattern, `PrismaService`, `UsersRepository`.
 
-## Поведение фронтенда
+## Frontend behaviour
 
-**`/login`** (`"use client"`) — `Card` шириной `max-w-sm` по центру, внутри `Tabs` с
-`TabsList` из двух `TabsTrigger`: «Log in» и «Register». Активная вкладка — `useState`.
+**`/login`** (`"use client"`) — a `Card` of `max-w-sm` width, centred, containing `Tabs` with a
+`TabsList` of two `TabsTrigger`s: "Log in" and "Register". The active tab is `useState`.
 
-- **`LoginForm`** — email, пароль, ссылка «Forgot password?» на `/forgot-password`.
-  Успех → `authStorage.set(accessToken)` → `router.push("/expenses")`. Дефолты
-  `demo@example.com` / `password123` сохраняются: они полезны и упомянуты в README
-- **`RegisterForm`** — имя (опционально), email, пароль, подтверждение пароля. Успех
-  ведёт себя ровно как вход: `POST /auth/register` уже возвращает `AuthResponse` с токеном
-- Ошибки — в `Alert` с `variant="destructive"` и `role="alert"`. Toast-хост в
-  `providers.tsx` отсутствует, и `sonner` ради этого не ставится
+- **`LoginForm`** — email, password, a "Forgot password?" link to `/forgot-password`.
+  Success → `authStorage.set(accessToken)` → `router.push("/expenses")`. The
+  `demo@example.com` / `password123` defaults are kept: they are useful and mentioned in the README
+- **`RegisterForm`** — name (optional), email, password, password confirmation. Success
+  behaves exactly like login: `POST /auth/register` already returns an `AuthResponse` with a token
+- Errors go into an `Alert` with `variant="destructive"` and `role="alert"`. There is no toast host in
+  `providers.tsx`, and `sonner` is not installed just for this
 
-**`/forgot-password`** — одно поле email. После `204` форма заменяется на `Alert`:
-«Если аккаунт с таким email существует, ссылка для сброса отправлена» — формулировка не
-подтверждает существование аккаунта, иначе `204`-без-утечки на бэкенде обессмысливается.
-Рядом — подсказка, что в учебном режиме ссылка лежит в логе бэкенда.
+**`/forgot-password`** — a single email field. After a `204` the form is replaced by an `Alert`:
+"If an account with that email exists, a reset link has been sent. In this template the link is written
+to the backend server log rather than emailed." The wording does not confirm that the account exists —
+otherwise the leak-free `204` on the backend would be pointless — and it doubles as the hint about
+where the link ends up in template mode.
 
-**`/reset-password`** — читает `?token=` через `useSearchParams`, поля «новый пароль» и
-«подтверждение». Успех → `router.push("/login")` с сообщением. Токен уходит только в теле
-POST, в query он присутствует лишь потому, что ссылка обязана быть ссылкой.
+**`/reset-password`** — reads `?token=` via `useSearchParams`, with "new password" and
+"confirmation" fields. Success → `router.push("/login")` with a message. The token only travels in the
+POST body; it is present in the query string purely because a link has to be a link.
 
-zod-схемы повторяют границы DTO (`min(8)`, `max(72)`, `max(100)` для имени) и добавляют то,
-чего на бэкенде нет и не нужно: `.refine` на совпадение пароля и подтверждения. Как в
-существующем `login/page.tsx`, используется `z.string().email()`, а не `z.email()` — валидно
-и в Zod 3, и в Zod 4.
+The zod schemas mirror the DTO bounds (`min(8)`, `max(72)`, `max(100)` for the name) and add what the
+backend does not have and does not need: a `.refine` on the password and confirmation matching. As in the
+existing `login/page.tsx`, we use `z.string().email()` rather than `z.email()` — valid
+in both Zod 3 and Zod 4.
 
-## Порядок работ
+## Order of work
 
-1. **Бэкенд, схема:** модель → `pnpm db:migrate` → `pnpm db:generate`
-2. **`packages/shared`:** типы и маршруты (без этого фронтенд не скомпилируется)
-3. **Бэкенд, слой данных:** `password-reset-token.repository.ts` → два метода в `UsersService`
-4. **Бэкенд, CQRS:** команды → хендлеры → регистрация в `USERS_COMMAND_HANDLERS`
-5. **Бэкенд, HTTP:** DTO → `AuthService` → `AuthController`
-6. **Бэкенд, тесты:** `users.service.spec` → `users.cqrs.spec` → `auth.service.spec` → e2e
-7. **Фронтенд, компоненты** — из `apps/frontend`, а не из корня: CLI ищет `components.json`
-   в рабочем каталоге, и `pnpm --filter … dlx` не существует как форма команды.
+1. **Backend, schema:** the model → `pnpm db:migrate` → `pnpm db:generate`
+2. **`packages/shared`:** types and routes (without these the frontend will not compile)
+3. **Backend, data layer:** `password-reset-token.repository.ts` → two methods in `UsersService`
+4. **Backend, CQRS:** commands → handlers → registration in `USERS_COMMAND_HANDLERS`
+5. **Backend, HTTP:** DTOs → `AuthService` → `AuthController`
+6. **Backend, tests:** `users.service.spec` → `users.cqrs.spec` → `auth.service.spec` → e2e
+7. **Frontend, components** — from `apps/frontend`, not from the root: the CLI looks for `components.json`
+   in the working directory, and `pnpm --filter … dlx` does not exist as a command form.
 
    ```bash
    cd apps/frontend
@@ -295,72 +297,72 @@ zod-схемы повторяют границы DTO (`min(8)`, `max(72)`, `max(
    cd ../.. && pnpm format
    ```
 
-8. **Фронтенд, код:** `lib/validation/auth.ts` → `lib/queries/auth.ts` → формы → три страницы
-9. **Документация:** `.env.example`, README, CLAUDE.md
+8. **Frontend, code:** `lib/validation/auth.ts` → `lib/queries/auth.ts` → the forms → the three pages
+9. **Documentation:** `.env.example`, README, CLAUDE.md
 
-## Ловушки
+## Pitfalls
 
-- **`useSearchParams` на `/reset-password` требует `Suspense`.** В Next 16 клиентский компонент,
-  читающий search params, при статическом рендере обязан быть под границей `Suspense`, иначе
-  `next build` падает. Форму заворачиваем в `<Suspense fallback={…}>` внутри страницы; ставить
-  `export const dynamic = "force-dynamic"` на всю страницу — лишнее.
-- **`WEB_APP_URL` читаем через `config.get("WEB_APP_URL", "http://localhost:3000")`, а не
-  `getOrThrow`.** `getOrThrow` уронит бэкенд на старте у всех, чей `.env` скопирован до этой
-  правки. Для `JWT_SECRET` `getOrThrow` уместен, для URL с очевидным дефолтом — нет.
-- **`.env.example` лежит в каталоге, закрытом настройками доступа** — я его не читал и не правил.
-  Строку `WEB_APP_URL=http://localhost:3000` придётся добавить вручную либо разрешить доступ.
-- **`resetPassword` делает две записи без транзакции.** Обновление `passwordHash` и удаление
-  токенов пользователя — два запроса. Если первый прошёл, а второй упал, ссылка останется живой
-  и будет работать против **нового** пароля. Оборачиваем в `this.prisma.$transaction([...])`
-  на уровне репозитория/сервиса; молча оставлять это окно нельзя.
-- **`import type` ломает Nest DI.** `ForgotPasswordDto` / `ResetPasswordDto` в `@Body()`,
-  `ConfigService` в конструкторе хендлера, репозиторий в конструкторе сервиса,
-  классы команд в `@CommandHandler(...)` —
-  всё это импорты-значения. Ошибка вылезет не в типах, а как «Nest can't resolve dependencies»
-  при старте. `typescript/consistent-type-imports` в проекте выключен именно поэтому.
-- **`CqrsModule` регистрирует хендлеры в `onApplicationBootstrap`.** В `users.cqrs.spec.ts`
-  обязателен `await moduleRef.init()` до первого `execute()`, иначе шина пуста.
-- **`shadcn add` пишет файлы не по правилам oxfmt.** `pnpm format:check` — часть зелёного
-  базового состояния, поэтому `pnpm format` идёт сразу после генерации, до любых правок.
-- **`minimumReleaseAge` может заблокировать свежие пакеты Radix.** В `pnpm-workspace.yaml` уже
-  есть `minimumReleaseAgeExclude`, дописанный самим pnpm. Если установка упрётся в возраст
-  релиза, pnpm скажет об этом и допишет туда же — не «обходить» правкой версий вслепую.
-  Postinstall-скриптов у Radix нет, так что запись в `allowBuilds` не нужна.
-- **`authStorage.clear()` в проекте не вызывается нигде.** CLAUDE.md утверждает, что фронтенд
-  «сбрасывает сохранённый токен на 401 и больше ни на чём», но `categories/page.tsx:213-214` и
-  `expenses/page.tsx:35-38` только делают `router.push("/login")`, оставляя мёртвый токен в
-  `localStorage`. Правка на две строки, и делается здесь: страница входа, на которую ведёт
-  этот редирект, — предмет этой задачи, а расхождение документации с кодом чинить дешевле
-  сейчас, чем объяснять позже.
-- **`UsersService` уже ~150 строк**, два новых метода доводят его примерно до 190. Пока
-  терпимо; если добавится третий сценарий с токенами, логику стоит вынести отдельным сервисом.
+- **`useSearchParams` on `/reset-password` requires `Suspense`.** In Next 16 a client component
+  reading search params must sit under a `Suspense` boundary during static rendering, otherwise
+  `next build` fails. We wrap the form in `<Suspense fallback={…}>` inside the page; putting
+  `export const dynamic = "force-dynamic"` on the whole page is overkill.
+- **Read `WEB_APP_URL` through `config.get("WEB_APP_URL", "http://localhost:3000")`, not
+  `getOrThrow`.** `getOrThrow` will kill the backend at startup for everyone whose `.env` was copied before this
+  change. `getOrThrow` is right for `JWT_SECRET`; for a URL with an obvious default it is not.
+- **`.env.example` sits in a directory closed off by access settings** — I did not read or edit it.
+  The `WEB_APP_URL=http://localhost:3000` line will have to be added by hand, or access granted.
+- **`resetPassword` performs two writes without a transaction.** Updating `passwordHash` and deleting the
+  user's tokens are two queries. If the first succeeds and the second fails, the link stays live
+  and will work against the **new** password. We wrap it in `this.prisma.$transaction([...])`
+  at the repository/service level; silently leaving that window open is not acceptable.
+- **`import type` breaks Nest DI.** `ForgotPasswordDto` / `ResetPasswordDto` in `@Body()`,
+  `ConfigService` in the handler's constructor, the repository in the service's constructor,
+  the command classes in `@CommandHandler(...)` —
+  all of these are value imports. The error surfaces not in the types but as "Nest can't resolve dependencies"
+  at startup. `typescript/consistent-type-imports` is disabled in the project for exactly this reason.
+- **`CqrsModule` registers handlers in `onApplicationBootstrap`.** In `users.cqrs.spec.ts`
+  an `await moduleRef.init()` before the first `execute()` is mandatory, otherwise the bus is empty.
+- **`shadcn add` writes files that do not follow the oxfmt rules.** `pnpm format:check` is part of the green
+  baseline, so `pnpm format` goes immediately after generation, before any edits.
+- **`minimumReleaseAge` may block fresh Radix packages.** `pnpm-workspace.yaml` already has a
+  `minimumReleaseAgeExclude`, appended by pnpm itself. If the install runs into the release age,
+  pnpm will say so and append there too — do not "work around" it by blindly editing versions.
+  Radix has no postinstall scripts, so no `allowBuilds` entry is needed.
+- **`authStorage.clear()` is not called anywhere in the project.** CLAUDE.md claims the frontend
+  "discards the stored token on 401 and on nothing else", but `categories/page.tsx:213-214` and
+  `expenses/page.tsx:35-38` only do `router.push("/login")`, leaving a dead token in
+  `localStorage`. It is a two-line fix, and it happens here: the login page this redirect leads to
+  is the subject of this task, and reconciling the documentation with the code is cheaper
+  now than explaining it later.
+- **`UsersService` is already ~150 lines**, and two new methods bring it to roughly 190. Tolerable for now;
+  if a third token scenario appears, the logic should be extracted into its own service.
 
-## Тесты
+## Tests
 
-- **`users.service.spec.ts`** (мок-репозитории, по образцу существующих кейсов):
-  - `createPasswordResetToken` на неизвестный email → `null`, в репозиторий ничего не пишется
-  - на известный → возвращён сырой токен, а в репозиторий ушёл **не он**, а его SHA-256
-    (проверяем ровно как для пароля: наружу секрет, в базу — хэш)
-  - предыдущие токены пользователя удалены до создания нового
-  - `resetPassword` с неизвестным `tokenHash` → `BadRequestException`
-  - с истёкшим `expiresAt` → `BadRequestException`, и строка удалена
-  - успех → в `users.update` уходит argon2-хэш нового пароля, токены пользователя удалены
-  - повторный вызов с тем же токеном → `BadRequestException` (одноразовость)
-- **`users.cqrs.spec.ts`** — оба новых сообщения через шину; единственный тест, который ловит
-  незарегистрированный хендлер
-- **`auth.service.spec.ts`** — мок `CommandBus`: `requestPasswordReset` для неизвестного email
-  завершается **без ошибки** и отдаёт тот же результат, что для известного (доказательство
-  отсутствия перечисления email)
-- **`request-password-reset.handler.spec.ts`** — мок `UsersService` + `ConfigService` и шпион на
-  `Logger`: для известного email в лог уходит URL, содержащий `WEB_APP_URL` и токен; для
-  неизвестного — URL **не** логируется. Это тест на доставку, поэтому живёт рядом с хендлером,
-  а не в `auth.service.spec.ts`
-- **`test/app.e2e-spec.ts`** — `POST /api/auth/forgot-password` с незарегистрированным email → `204`;
-  `POST /api/auth/reset-password` с мусорным токеном → `400`
-- Фронтенд-тестов нет: инфраструктуры для них в проекте не существует, и заводить её здесь
-  — отдельная задача
+- **`users.service.spec.ts`** (mock repositories, modelled on the existing cases):
+  - `createPasswordResetToken` for an unknown email → `null`, nothing written to the repository
+  - for a known one → the raw token is returned, and what reached the repository is **not** it but its SHA-256
+    (checked exactly as for the password: the secret goes out, the hash goes into the database)
+  - the user's previous tokens are deleted before the new one is created
+  - `resetPassword` with an unknown `tokenHash` → `BadRequestException`
+  - with an expired `expiresAt` → `BadRequestException`, and the row is deleted
+  - success → an argon2 hash of the new password reaches `users.update`, and the user's tokens are deleted
+  - a second call with the same token → `BadRequestException` (single use)
+- **`users.cqrs.spec.ts`** — both new messages through the bus; the one test that catches
+  an unregistered handler
+- **`auth.service.spec.ts`** — mock `CommandBus`: `requestPasswordReset` for an unknown email
+  completes **without an error** and returns the same result as for a known one (proof that
+  email enumeration is absent)
+- **`request-password-reset.handler.spec.ts`** — mock `UsersService` + `ConfigService` and a spy on
+  `Logger`: for a known email a URL containing `WEB_APP_URL` and the token reaches the log; for an
+  unknown one the URL is **not** logged. This is a delivery test, so it lives next to the handler
+  rather than in `auth.service.spec.ts`
+- **`test/app.e2e-spec.ts`** — `POST /api/auth/forgot-password` with an unregistered email → `204`;
+  `POST /api/auth/reset-password` with a garbage token → `400`
+- No frontend tests: no infrastructure for them exists in the project, and setting it up here
+  is a separate task
 
-## Верификация
+## Verification
 
 ```bash
 pnpm typecheck && pnpm lint && pnpm test && pnpm format:check && pnpm build
@@ -369,51 +371,51 @@ pnpm db:migrate && pnpm db:generate && pnpm db:seed
 pnpm --filter @expense-tracker/backend test:e2e
 ```
 
-Приёмка вручную (`pnpm dev`, фронтенд на http://localhost:3000).
+Manual acceptance (`pnpm dev`, frontend at http://localhost:3000).
 
-**Сценарий сброса гоняем на одноразовом аккаунте, а не на `demo@example.com`.** `seed.ts`
-делает `upsert` с `update: {}`, то есть повторный `pnpm db:seed` существующему пользователю
-пароль **не восстанавливает**. Сбросив демо-пароль, вернуть задокументированный в README
-`password123` можно будет только удалив пользователя. Поэтому шаг 3 создаёт `reset-test@example.com`,
-и шаги 6–10 идут на нём.
+**Run the reset scenario on a throwaway account, not on `demo@example.com`.** `seed.ts`
+does an `upsert` with `update: {}`, meaning a repeat `pnpm db:seed` does **not** restore the password
+of an existing user. Once the demo password is reset, getting the README-documented
+`password123` back would require deleting the user. So step 3 creates `reset-test@example.com`,
+and steps 6-10 run against it.
 
-1. `/login` показывает две вкладки; переключение сохраняет введённое в каждой форме
-2. Вход `demo@example.com` / `password123` → `/expenses` (регресс не внесён)
-3. Регистрация `reset-test@example.com` → сразу залогинен и на `/expenses`; тот же email
-   второй раз → 409 с внятным текстом в `Alert`
-4. Пароль в 7 символов **отклоняется** на клиенте, запроса нет; отправка того же в Swagger —
-   `400` от DTO (границы клиента и бэкенда совпадают)
-5. Несовпадающее подтверждение пароля → ошибка поля, запроса нет
-6. `/forgot-password` с `reset-test@example.com` → `204`, в логе бэкенда ссылка
+1. `/login` shows two tabs; switching preserves what was typed into each form
+2. Login as `demo@example.com` / `password123` → `/expenses` (no regression introduced)
+3. Registering `reset-test@example.com` → immediately logged in and on `/expenses`; the same email
+   a second time → 409 with a comprehensible message in the `Alert`
+4. A 7-character password is **rejected** on the client with no request made; sending the same through Swagger →
+   `400` from the DTO (the client and backend bounds agree)
+5. A mismatched password confirmation → a field error, no request made
+6. `/forgot-password` with `reset-test@example.com` → `204`, and the backend log holds the link
    `http://localhost:3000/reset-password?token=…`
-7. Тот же экран с заведомо отсутствующим email → **тот же** ответ и то же сообщение на экране,
-   в логе пометка, что email неизвестен, и **никакого URL** (отсутствие перечисления email)
-8. Переход по ссылке → новый пароль → `/login`; вход со **старым** паролем `401`, с новым — успех
-9. Повторный переход по той же ссылке → «Reset link is invalid or has expired»
-10. Запрос второй ссылки делает первую нерабочей (живая ссылка одна)
-11. `psql` → `\d password_reset_tokens`: `tokenHash` уникален, колонки `usedAt` нет
-12. `DELETE /api/users/me` для `reset-test@example.com` уносит его токены каскадом
-    (и заодно убирает тестовый аккаунт)
-13. Вход `demo@example.com` / `password123` всё ещё работает — демо-аккаунт не задет
-14. Тёмная тема: `<html class="dark">` — карточка, вкладки и `Alert` читаемы (токены `.dark` есть)
-15. `/categories` и `/expenses` выглядят как раньше — рукописные классы не задеты
+7. The same screen with an email known not to exist → **the same** response and the same on-screen message,
+   a note in the log that the email is unknown, and **no URL** (no email enumeration)
+8. Following the link → new password → `/login`; logging in with the **old** password gives `401`, with the new one succeeds
+9. Following the same link again → "Reset link is invalid or has expired"
+10. Requesting a second link makes the first one stop working (there is only one live link)
+11. `psql` → `\d password_reset_tokens`: `tokenHash` is unique, and there is no `usedAt` column
+12. `DELETE /api/users/me` for `reset-test@example.com` cascade-deletes its tokens
+    (and clears away the test account at the same time)
+13. Logging in as `demo@example.com` / `password123` still works — the demo account was not touched
+14. Dark theme: `<html class="dark">` — the card, the tabs and the `Alert` are legible (the `.dark` tokens exist)
+15. `/categories` and `/expenses` look as before — the hand-written classes were not touched
 
-## Вне объёма
+## Out of scope
 
-- **Писем не отправляем.** Ни nodemailer, ни Mailpit, ни сервиса в `docker-compose.yml`.
-  Доставка ссылки — лог бэкенда. Зафиксировать в README как упрощение шаблона.
-- **Rate limiting на `forgot-password` не вводим** — согласуется с уже задокументированным
-  отсутствием rate limiting на входе. Отметить как известное ограничение, а не забыть.
-- **Чистки просроченных токенов по расписанию нет.** Cron/scheduler в проект не добавляется;
-  токены незавершённых сценариев остаются в таблице до удаления пользователя. Для шаблона
-  это шум, а не проблема.
-- **Верификации email при регистрации нет** — требование её не просит, а вся почтовая
-  инфраструктура для неё отсутствует по решению выше.
-- **`/categories` и `/expenses` на shadcn не переписываются.** Две идиомы в кодовой базе
-  остаются сознательно; граница описана в CLAUDE.md.
-- **Отзыва токенов, refresh-ротации, ролей, httpOnly-cookie нет** — CLAUDE.md и README
-  фиксируют это как осознанные упрощения. Сброс пароля **не** инвалидирует ранее выданные
-  JWT: механизма отзыва не существует, старый токен доживёт до истечения срока.
-  Это надо назвать в README прямо — от смены пароля пользователь ждёт обратного.
-- **Навигации и разлогина в приложении по-прежнему нет.** `authStorage.clear()` появляется
-  только на пути обработки 401; кнопка «Log out» — отдельная задача.
+- **We send no emails.** No nodemailer, no Mailpit, no service in `docker-compose.yml`.
+  Link delivery is the backend log. Record it in the README as a template simplification.
+- **No rate limiting on `forgot-password`** — consistent with the already-documented
+  absence of rate limiting on login. Note it as a known limitation rather than forgetting it.
+- **There is no scheduled cleanup of expired tokens.** No cron/scheduler is added to the project;
+  tokens from abandoned flows stay in the table until the user is deleted. For a template
+  that is noise, not a problem.
+- **There is no email verification at registration** — the requirement does not ask for it, and the whole
+  mail infrastructure it would need is absent by the decision above.
+- **`/categories` and `/expenses` are not rewritten on shadcn.** Two idioms in the codebase
+  stay deliberately; the boundary is described in CLAUDE.md.
+- **No token revocation, refresh rotation, roles or httpOnly cookies** — CLAUDE.md and the README
+  record these as deliberate simplifications. A password reset does **not** invalidate previously issued
+  JWTs: no revocation mechanism exists, and an old token will live out its expiry.
+  This needs saying plainly in the README — a user expects the opposite from a password change.
+- **The application still has no navigation and no logout.** `authStorage.clear()` appears
+  only on the 401 handling path; a "Log out" button is a separate task.

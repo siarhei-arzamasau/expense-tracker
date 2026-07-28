@@ -1,94 +1,94 @@
-# Категории трат: сущность, сервис, контроллер
+# Expense categories: entity, service, controller
 
-## Статус
+## Status
 
-**Всё, что требует задание, уже реализовано и закоммичено в `698eb9b`.** Документ приведён
-в соответствие с формулировкой задания задним числом: разделы переупорядочены под четыре
-требуемых пункта, фронтендовая часть вынесена в «Сверх задания». Кода это не меняет —
-несделанных пунктов требования нет.
+**Everything the assignment requires is already implemented and committed in `698eb9b`.** This document
+was brought in line with the assignment's wording after the fact: the sections were reordered to follow
+the four required points, and the frontend part was moved out into "Beyond the assignment". This changes
+no code — there are no outstanding requirement items.
 
-## Требование
+## Requirement
 
-> Авторизация уже реализована. Теперь задача — сделать категории трат: добавить сущность
-> категории с идентификатором, названием, иконкой, цветом и идентификатором пользователя,
-> к которому категория привязана. Затем реализовать сервис категорий с методами создания,
-> поиска, обновления и удаления всех категорий пользователя, а также контроллер с этими
-> эндпоинтами, защищённый текущими гардами и валидируемый классом-валидатором.
+> Authentication is already implemented. The task now is to build expense categories: add a category
+> entity with an identifier, a name, an icon, a color and the identifier of the user the category
+> belongs to. Then implement a categories service with methods for creating, finding, updating and
+> deleting all of the user's categories, plus a controller exposing those endpoints, protected by the
+> current guards and validated with a class validator.
 
-| Пункт задания          | Где живёт                                          | Что пришлось добавить                |
-| ---------------------- | -------------------------------------------------- | ------------------------------------ |
-| Сущность категории     | `model Category` в `schema.prisma`                 | колонка `icon`; остальное уже было   |
-| Сервис: создание       | `CategoriesService.create`                         | параметр `icon`                      |
-| Сервис: поиск          | `CategoriesService.findAll`                        | `_count` и `toListItemDto`           |
-| Сервис: обновление     | `CategoriesService.update`                         | **метод целиком — его не было**      |
-| Сервис: удаление       | `CategoriesService.remove`                         | ничего                               |
-| Контроллер под гардами | `CategoriesController`, `@UseGuards(JwtAuthGuard)` | `@Patch(":id")`                      |
-| Валидация классом      | `Create`/`UpdateCategoryDto`                       | `UpdateCategoryDto`, `IsSingleEmoji` |
+| Assignment item         | Where it lives                                     | What had to be added                    |
+| ----------------------- | -------------------------------------------------- | --------------------------------------- |
+| Category entity         | `model Category` in `schema.prisma`                | the `icon` column; the rest existed     |
+| Service: create         | `CategoriesService.create`                         | the `icon` parameter                    |
+| Service: find           | `CategoriesService.findAll`                        | `_count` and `toListItemDto`            |
+| Service: update         | `CategoriesService.update`                         | **the whole method — it did not exist** |
+| Service: delete         | `CategoriesService.remove`                         | nothing                                 |
+| Controller under guards | `CategoriesController`, `@UseGuards(JwtAuthGuard)` | `@Patch(":id")`                         |
+| Class-based validation  | `Create`/`UpdateCategoryDto`                       | `UpdateCategoryDto`, `IsSingleEmoji`    |
 
-Два места, где формулировку легко прочитать неверно:
+Two places where the wording is easy to misread:
 
-- **«удаление всех категорий пользователя»** — это про то, что весь CRUD ограничен категориями
-  текущего пользователя, а не про массовое удаление одним запросом. Эндпоинта
-  `DELETE /api/categories` нет и не планируется.
-- **«иконкой, цветом»** — два отдельных nullable-поля (`icon` и `color`), а не «цвет иконки».
-  `color` уже существовал в модели.
+- **"deleting all of the user's categories"** — this is about the whole CRUD surface being scoped to the
+  current user's categories, not about bulk deletion in a single request. There is no
+  `DELETE /api/categories` endpoint and none is planned.
+- **"an icon, a color"** — two separate nullable fields (`icon` and `color`), not "the icon's color".
+  `color` already existed on the model.
 
 ## Context
 
-Модель `Category` существует, но пользоваться ей почти нельзя. У `CategoriesService` есть только
-`findAll` / `create` / `remove` — **эндпоинта обновления нет вообще**, поэтому уже имеющуюся
-колонку `color` можно задать при создании и больше никогда не изменить. Иконки нет как колонки.
+The `Category` model exists, but it is nearly unusable. `CategoriesService` only has
+`findAll` / `create` / `remove` — **there is no update endpoint at all**, so the already-present
+`color` column can be set at creation time and never changed again. The icon does not exist as a column.
 
-Что делаем по заданию:
+What the assignment has us do:
 
-1. **Колонка `icon`** на `Category` — один эмодзи.
-2. **`PATCH /api/categories/:id`** — редактирование имени, цвета и иконки.
-3. **Класс-валидатор `IsSingleEmoji`** — правило для `icon`, которое нельзя выразить готовыми
-   декораторами `class-validator`.
+1. **An `icon` column** on `Category` — a single emoji.
+2. **`PATCH /api/categories/:id`** — editing the name, color and icon.
+3. **The `IsSingleEmoji` class validator** — a rule for `icon` that cannot be expressed with the
+   stock `class-validator` decorators.
 
-Сверх задания, отдельным разделом ниже: страница `/categories` и фильтр трат по категории —
-без них бэкендовый CRUD в приложении никак не проявляется.
+Beyond the assignment, in its own section below: the `/categories` page and the expense filter by
+category — without them the backend CRUD is not visible from the application at all.
 
-## Ключевые решения (и почему)
+## Key decisions (and why)
 
-**Проверка уникальности в `update` обязана исключать редактируемую строку.**
-`@@unique([userId, name])` означает, что переименование может столкнуться с чужим именем.
-`create` уже бросает `ConflictException` — `update` повторяет проверку, но с
-`if (existing && existing.id !== id)`. Без этого сохранение категории **без** смены имени
-отвечает 409.
+**The uniqueness check in `update` must exclude the row being edited.**
+`@@unique([userId, name])` means a rename can collide with another category's name.
+`create` already throws `ConflictException` — `update` repeats the check, but with
+`if (existing && existing.id !== id)`. Without that, saving a category **without** renaming it
+answers 409.
 
-**Валидация эмодзи — через `Intl.Segmenter`, а не через `@MaxLength`.**
-`class-validator` считает кодовые единицы UTF-16, а `"👨‍👩‍👧‍👦".length === 11`. Ограничение длины
-отвергает большинство реальных эмодзи. Считаем графемные кластеры (Node 24 умеет `Intl.Segmenter`)
-и требуем ровно один. Это и есть «класс-валидатор» из задания в буквальном смысле:
-`ValidatorConstraintInterface`, а не композиция готовых декораторов.
+**Emoji validation goes through `Intl.Segmenter`, not `@MaxLength`.**
+`class-validator` counts UTF-16 code units, and `"👨‍👩‍👧‍👦".length === 11`. A length cap
+rejects most real emoji. We count grapheme clusters instead (Node 24 has `Intl.Segmenter`)
+and require exactly one. This is the assignment's "class validator" in the literal sense:
+a `ValidatorConstraintInterface`, not a composition of stock decorators.
 
-**`expenseCount` живёт в отдельном `CategoryListItemDto`, а не в `CategoryDto`.**
-_Строго говоря, счётчик выходит за рамки задания_ — он нужен подтверждению удаления и подписям
-чипсов фильтра. Раз он всё-таки есть, важно, где именно: `ExpenseDto` встраивает копию категории,
-и `ExpensesService.toDto` собирает этот вложенный объект руками (`expenses.service.ts:122-129`).
-Обязательное поле счётчика в `CategoryDto` заставило бы считать агрегат на каждую трату впустую.
-`GET /categories` отдаёт расширенный тип, вложенная копия остаётся плоской.
+**`expenseCount` lives on a separate `CategoryListItemDto`, not on `CategoryDto`.**
+_Strictly speaking the counter is outside the assignment_ — it is needed by the delete confirmation and
+by the filter chip labels. Given that it exists anyway, where it lives matters: `ExpenseDto` embeds a copy
+of its category, and `ExpensesService.toDto` assembles that nested object by hand (`expenses.service.ts:122-129`).
+A required counter field on `CategoryDto` would force a wasted aggregate for every single expense.
+`GET /categories` returns the extended type; the nested copy stays flat.
 
-## Схема и миграция
+## Schema and migration
 
-`packages/database/prisma/schema.prisma`, в `model Category`:
+`packages/database/prisma/schema.prisma`, inside `model Category`:
 
 ```prisma
-  /// Один эмодзи. Хранится как текст; правило — см. IsSingleEmoji в бэкенде.
+  /// One emoji. The backend's IsSingleEmoji validator enforces the rule.
   icon String?
 ```
 
-Остальные поля из задания в модели уже есть: `id` (`uuid(7)`), `name`, `color`, `userId`
-с `@relation(onDelete: Cascade)` и `@@unique([userId, name])`.
+The model already has the assignment's other fields: `id` (`uuid(7)`), `name`, `color`, `userId`
+with `@relation(onDelete: Cascade)` and `@@unique([userId, name])`.
 
-Поле добавляемое и nullable, поэтому `prisma migrate dev --name add_category_icon` сгенерирует
-чистый `ALTER TABLE ... ADD COLUMN` и отработает без интерактивного подтверждения. Это **не**
-тот случай ручного SQL, о котором предупреждает CLAUDE.md — там речь про переименование колонок.
-Далее `pnpm db:generate`.
+The field is additive and nullable, so `prisma migrate dev --name add_category_icon` will generate a
+clean `ALTER TABLE ... ADD COLUMN` and run without interactive confirmation. This is **not**
+the hand-written-SQL case CLAUDE.md warns about — that one is about column renames.
+Then `pnpm db:generate`.
 
-`prisma/seed.ts` — иконки сидовым категориям, и `update` в upsert расширяется, чтобы повторный
-сид дозаполнил уже существующие строки:
+`prisma/seed.ts` — icons for the seeded categories, and the upsert's `update` is widened so that
+re-seeding backfills already-existing rows:
 
 ```ts
 const CATEGORIES = [
@@ -101,19 +101,19 @@ const CATEGORIES = [
 update: { color: category.color, icon: category.icon },
 ```
 
-## Контракт типов — `packages/shared/src/types/category.ts`
+## Type contract — `packages/shared/src/types/category.ts`
 
 ```ts
 export interface CategoryDto {
   id: string;
   name: string;
   color: string | null;
-  icon: string | null; // новое
+  icon: string | null; // new
   createdAt: string;
 }
 
-/** Только для GET /categories. Счётчик нужен подтверждению удаления и подписям
- *  чипсов фильтра; вложенная в ExpenseDto копия его сознательно НЕ несёт. */
+/** For GET /categories only. The counter is needed by the delete confirmation and by the
+ *  filter chip labels; the copy embedded in ExpenseDto deliberately does NOT carry it. */
 export interface CategoryListItemDto extends CategoryDto {
   expenseCount: number;
 }
@@ -124,9 +124,9 @@ export interface CreateCategoryInput {
   icon?: string;
 }
 
-/** НЕ `Partial<CreateCategoryInput>`: `null` должен быть выразим, потому что кнопки
- *  «Без цвета» / «Убрать иконку» очищают колонку. `undefined` — «не трогать»,
- *  `null` — «очистить». */
+/** NOT `Partial<CreateCategoryInput>`: `null` has to be expressible, because the
+ *  "No color" / "Remove icon" buttons clear the column. `undefined` means "leave alone",
+ *  `null` means "clear". */
 export interface UpdateCategoryInput {
   name?: string;
   color?: string | null;
@@ -134,36 +134,37 @@ export interface UpdateCategoryInput {
 }
 ```
 
-`API_ROUTES.categories.byId` уже существует — константы маршрутов не меняем.
+`API_ROUTES.categories.byId` already exists — the route constants do not change.
 
-## Эндпоинты
+## Endpoints
 
-| Метод    | Путь                  | Тело                       | Ответ                           |
+| Method   | Path                  | Body                       | Response                        |
 | -------- | --------------------- | -------------------------- | ------------------------------- |
 | `GET`    | `/api/categories`     | —                          | `200` + `CategoryListItemDto[]` |
 | `POST`   | `/api/categories`     | `{ name, color?, icon? }`  | `201` + `CategoryDto`           |
 | `PATCH`  | `/api/categories/:id` | `{ name?, color?, icon? }` | `200` + `CategoryDto`           |
 | `DELETE` | `/api/categories/:id` | —                          | `204`                           |
 
-`GET` и `POST` уже есть, `PATCH` — новый. Всё под `JwtAuthGuard` («текущие гарды» из задания —
-именно он, отдельного гарда владения не заводим), `userId` только из `@CurrentUser()`, никогда
-из тела или query. Ограничение выборки владельцем — это и есть защита от чужих строк.
+`GET` and `POST` already exist; `PATCH` is new. Everything sits under `JwtAuthGuard` (the assignment's
+"current guards" means exactly that one — no separate ownership guard is introduced), and `userId` comes
+only from `@CurrentUser()`, never from the body or the query string. Scoping the query to the owner
+is itself the protection against other users' rows.
 
-## Файлы
+## Files
 
 **`packages/database`**
 
-- `prisma/schema.prisma` — `icon String?` в `Category`
-- `prisma/migrations/<timestamp>_add_category_icon/migration.sql` — сгенерированный, править не нужно
-- `prisma/seed.ts` — иконки в `CATEGORIES`, `icon` в `create`/`update` upsert-а
+- `prisma/schema.prisma` — `icon String?` in `Category`
+- `prisma/migrations/<timestamp>_add_category_icon/migration.sql` — generated, no editing needed
+- `prisma/seed.ts` — icons in `CATEGORIES`, `icon` in the upsert's `create`/`update`
 
 **`packages/shared`**
 
-- `src/types/category.ts` — по контракту выше
+- `src/types/category.ts` — per the contract above
 
 **`apps/backend/src/categories/`**
 
-- `validators/is-single-emoji.ts` — новый:
+- `validators/is-single-emoji.ts` — new:
 
   ```ts
   @ValidatorConstraint({ name: "isSingleEmoji", async: false })
@@ -185,217 +186,216 @@ export interface UpdateCategoryInput {
   }
   ```
 
-  `length > 32` — дешёвая защита до сегментации. `\p{Regional_Indicator}` в альтернативе
-  потому, что флаги (🇺🇸) — один графемный кластер, но **не** `Extended_Pictographic`, и без
-  этого были бы отвергнуты. Keycap-последовательности (1️⃣) остаются отвергнутыми — это цифра
-  плюс комбинирующая рамка, для поля иконки так и надо.
+  `length > 32` is a cheap guard ahead of segmentation. `\p{Regional_Indicator}` is in the alternation
+  because flags (🇺🇸) are one grapheme cluster but **not** `Extended_Pictographic`, and would be
+  rejected without it. Keycap sequences (1️⃣) stay rejected — that is a digit plus a combining
+  frame, which is what an icon field wants.
 
-- `dto/create-category.dto.ts` — поле `icon?: string` с `@IsOptional() @IsSingleEmoji()`
-  и `@ApiPropertyOptional({ example: "🛒" })`
-- `dto/update-category.dto.ts` — новый, ровно по образцу `expenses/dto/update-expense.dto.ts`:
+- `dto/create-category.dto.ts` — an `icon?: string` field with `@IsOptional() @IsSingleEmoji()`
+  and `@ApiPropertyOptional({ example: "🛒" })`
+- `dto/update-category.dto.ts` — new, exactly modelled on `expenses/dto/update-expense.dto.ts`:
   `export class UpdateCategoryDto extends PartialType(CreateCategoryDto) {}`
-  (`PartialType` из `@nestjs/swagger`, не из `@nestjs/mapped-types`). Типы `color`/`icon`
-  расширить до `string | null`, чтобы очистка колонки была типизирована, а не работала
-  случайно из-за `body: unknown` в `apiClient.patch`.
+  (`PartialType` from `@nestjs/swagger`, not from `@nestjs/mapped-types`). The `color`/`icon` types
+  are widened to `string | null` so that clearing a column is typed rather than working
+  by accident off `apiClient.patch`'s `body: unknown`.
 - `categories.service.ts`:
-  - `CategoryRecord` (строка 7) получает `icon: string | null`, `toDto` его возвращает
-  - `findAll` — `include: { _count: { select: { expenses: true } } }` и отдельный
-    маппер `toListItemDto`; `toDto` остаётся плоским
-  - новый `update(userId, id, dto): Promise<CategoryDto>` — сначала
-    `findFirst({ where: { id, userId } })` и 404, затем проверка уникальности с исключением
-    самой строки, затем сборка `data` идиомой `...(dto.x !== undefined && { x: dto.x })`
-    из `ExpensesService.update`. Именно этот спред отличает «поле опущено — не трогаем» от
-    «пришёл `null` — очищаем»; `@IsOptional()` уже пропускает `null` через валидатор.
-  - `remove` без изменений
-- `categories.controller.ts` — `@Patch(":id")` с `ParseUUIDPipe` по образцу
-  `ExpensesController`; возвращаемый тип `findAll` → `Promise<CategoryListItemDto[]>`
-- `categories.service.spec.ts` — новый (сейчас спеки у сервиса нет вообще)
+  - `CategoryRecord` (line 7) gains `icon: string | null`, and `toDto` returns it
+  - `findAll` — `include: { _count: { select: { expenses: true } } }` plus a separate
+    `toListItemDto` mapper; `toDto` stays flat
+  - a new `update(userId, id, dto): Promise<CategoryDto>` — first
+    `findFirst({ where: { id, userId } })` and a 404, then the uniqueness check excluding
+    the row itself, then assembling `data` with the `...(dto.x !== undefined && { x: dto.x })` idiom
+    from `ExpensesService.update`. That spread is exactly what distinguishes "field omitted — leave alone"
+    from "`null` arrived — clear it"; `@IsOptional()` already lets `null` through the validator.
+  - `remove` unchanged
+- `categories.controller.ts` — `@Patch(":id")` with `ParseUUIDPipe`, modelled on
+  `ExpensesController`; the return type of `findAll` → `Promise<CategoryListItemDto[]>`
+- `categories.service.spec.ts` — new (the service currently has no spec at all)
 
-**Рикошет от `CategoryDto`** — `apps/backend/src/expenses/expenses.service.ts` дублирует
-`CategoryRecord` (строка 8) и собирает вложенную категорию руками в `toDto` (строки 122-129).
-Обоим нужен `icon`. Пропустить нельзя — `tsc` не соберётся.
+**Ricochet from `CategoryDto`** — `apps/backend/src/expenses/expenses.service.ts` duplicates
+`CategoryRecord` (line 8) and assembles the nested category by hand in `toDto` (lines 122-129).
+Both need `icon`. It cannot be skipped — `tsc` will not build.
 
-**Что переиспользуется, а не пишется заново:** паттерн `interface CategoryRecord` + приватный
-`toDto()` из `categories.service.ts:7-12,48-55`, идиома частичного обновления из
-`expenses.service.ts:77-81`, `JwtAuthGuard` и `@CurrentUser()`, `ParseUUIDPipe` из
+**What is reused rather than written from scratch:** the `interface CategoryRecord` + private
+`toDto()` pattern from `categories.service.ts:7-12,48-55`, the partial-update idiom from
+`expenses.service.ts:77-81`, `JwtAuthGuard` and `@CurrentUser()`, `ParseUUIDPipe` from
 `ExpensesController`.
 
-## Порядок работ (бэкенд)
+## Order of work (backend)
 
 1. `schema.prisma` → `pnpm db:migrate` → `pnpm db:generate`
 2. `packages/shared/src/types/category.ts`
-3. Валидатор → DTO → сервис → контроллер
-4. Починка рикошета в `expenses.service.ts` (до этого момента `tsc` красный)
+3. Validator → DTO → service → controller
+4. Fix the ricochet in `expenses.service.ts` (until then `tsc` is red)
 5. `seed.ts` → `pnpm db:seed`
-6. Тесты
+6. Tests
 
-## Ловушки
+## Pitfalls
 
-- **`import type` ломает Nest DI.** `UpdateCategoryDto` в `@Body()` и всё, что стоит в
-  сигнатуре конструктора, импортируется как значение (CLAUDE.md фиксирует это отдельно).
-- **`@MaxLength` на эмодзи считает кодовые единицы UTF-16**, а не графемы — см. решение выше.
-- **Проверка уникальности без исключения своей строки** даёт 409 при сохранении без
-  переименования.
+- **`import type` breaks Nest DI.** `UpdateCategoryDto` in `@Body()` and anything appearing in a
+  constructor signature is imported as a value (CLAUDE.md records this separately).
+- **`@MaxLength` on emoji counts UTF-16 code units**, not graphemes — see the decision above.
+- **A uniqueness check that does not exclude the row itself** gives a 409 when saving without
+  a rename.
 
-## Тесты
+## Tests
 
-**`categories.service.spec.ts`** — новый, по образцу `expenses.service.spec.ts`
-(фабрика `createPrismaMock()` + `Test.createTestingModule`). `update` — самая рискованная
-новая логика:
+**`categories.service.spec.ts`** — new, modelled on `expenses.service.spec.ts`
+(a `createPrismaMock()` factory + `Test.createTestingModule`). `update` is the riskiest
+new logic:
 
-- переименование в имя, занятое другой категорией → 409
-- сохранение с неизменным именем → успех (регрессия на исключение своей строки)
-- `update` по id чужого пользователя → 404
-- частичное обновление не трогает остальные колонки
-- `findAll` отдаёт `expenseCount` из `_count`
+- renaming to a name taken by another category → 409
+- saving with the name unchanged → success (a regression test for excluding the row itself)
+- `update` by another user's id → 404
+- a partial update leaves the other columns alone
+- `findAll` returns `expenseCount` from `_count`
 
-**Юнит-тест DTO** — прогон `validate()` над `CreateCategoryDto`: `"🛒"` и `"👨‍👩‍👧‍👦"`
-(11 кодовых единиц, 1 графема) и `"🇺🇸"` проходят; `"ab"`, `"🛒🚌"` и обычная буква — нет.
+**A DTO unit test** — running `validate()` over `CreateCategoryDto`: `"🛒"` and `"👨‍👩‍👧‍👦"`
+(11 code units, 1 grapheme) and `"🇺🇸"` pass; `"ab"`, `"🛒🚌"` and a plain letter do not.
 
-## Верификация
+## Verification
 
 ```bash
 pnpm db:generate && pnpm db:migrate && pnpm db:seed
 pnpm typecheck && pnpm lint && pnpm test && pnpm build
 ```
 
-`pnpm typecheck` — настоящая страховка для правки `CategoryDto`: он красный в `packages/shared`,
-`categories.service.ts` и `expenses.service.ts`, пока все три не понесут `icon`.
+`pnpm typecheck` is the real safety net for the `CategoryDto` edit: it is red in `packages/shared`,
+`categories.service.ts` and `expenses.service.ts` until all three carry `icon`.
 
-Бэкенд, против живой БД (Swagger на http://localhost:3001/api/docs):
+Backend, against a live DB (Swagger at http://localhost:3001/api/docs):
 
-1. `POST /api/categories` с `{ "name": "Travel", "icon": "✈️", "color": "#0ea5e9" }` → 201, `icon` в ответе
-2. То же тело повторно → 409
-3. `POST` с `{ "name": "Bad", "icon": "ab" }` → 400 `icon must be a single emoji`;
-   повтор с `"👨‍👩‍👧‍👦"` и `"🇺🇸"` → оба 201 (случаи, которые ломают наивное ограничение длины
-   и голую проверку `Extended_Pictographic` соответственно)
-4. `PATCH /api/categories/:id` с `{ "color": "#ef4444" }` → 200, имя и иконка не изменились
-5. `PATCH` с собственным текущим именем категории → 200, а не 409
-6. `PATCH` / `DELETE` токеном второго пользователя по id категории первого → 404
-7. Любой из четырёх эндпоинтов без заголовка `Authorization` → 401 (проверка гарда)
-8. `DELETE` категории с тратами → 204; `GET /api/expenses` показывает эти строки с `categoryId: null`
+1. `POST /api/categories` with `{ "name": "Travel", "icon": "✈️", "color": "#0ea5e9" }` → 201, `icon` in the response
+2. The same body again → 409
+3. `POST` with `{ "name": "Bad", "icon": "ab" }` → 400 `icon must be a single emoji`;
+   repeated with `"👨‍👩‍👧‍👦"` and `"🇺🇸"` → both 201 (the cases that break a naive length cap
+   and a bare `Extended_Pictographic` check respectively)
+4. `PATCH /api/categories/:id` with `{ "color": "#ef4444" }` → 200, name and icon unchanged
+5. `PATCH` with the category's own current name → 200, not 409
+6. `PATCH` / `DELETE` with a second user's token against the first user's category id → 404
+7. Any of the four endpoints without an `Authorization` header → 401 (the guard check)
+8. `DELETE` a category that has expenses → 204; `GET /api/expenses` shows those rows with `categoryId: null`
 
-## Сверх задания: фронтенд
+## Beyond the assignment: frontend
 
-Задание описывает только сущность, сервис и контроллер. Ниже — то, что делается дополнительно,
-потому что иначе новым CRUD-ом нельзя пользоваться из приложения: страница `/categories`
-(список, поиск по имени, добавление, редактирование, удаление с подтверждением) и фильтр
-трат по категории на `/expenses`. Решения, подтверждённые пользователем: «фильтр» — это
-**фильтрация таблицы трат по категории** (поиск по имени живёт на странице категорий);
-для эмодзи берём **настоящую библиотеку-пикер**; удаление сохраняет текущее поведение
-`SetNull`, но получает подтверждение, называющее последствие.
+The assignment describes only the entity, the service and the controller. What follows is done
+additionally, because otherwise the new CRUD cannot be used from the application: the `/categories`
+page (list, search by name, add, edit, delete with confirmation) and the expense filter by category
+on `/expenses`. Decisions confirmed with the user: "filter" means **filtering the expenses table by
+category** (search by name lives on the categories page); for emoji we take a **real picker library**;
+deletion keeps the current `SetNull` behaviour but gains a confirmation that names the consequence.
 
-### Решения
+### Decisions
 
-**Поиск и фильтрация — на клиенте.** `findAll` и так отдаёт все категории пользователя в кэш
-TanStack Query, пагинации у трат нет. Серверный `?search=` потребовал бы query-DTO и возни
-с ключами кэша, не давая ничего при таких объёмах. Именно поэтому «поиск» из задания — это
-`findAll`, а не параметризованный эндпоинт.
+**Search and filtering happen on the client.** `findAll` already puts all of the user's categories into
+the TanStack Query cache, and expenses are unpaginated. A server-side `?search=` would require a query
+DTO and cache-key juggling while buying nothing at these sizes. That is exactly why the assignment's
+"find" is `findAll` rather than a parameterised endpoint.
 
-**Мутация категории инвалидирует и `["categories"]`, и `["expenses"]`.** Это главная ловушка
-фичи: `ExpenseDto` содержит снимок категории, поэтому без второй инвалидации переименованная
-или перекрашенная категория продолжает показываться в таблице трат по-старому. `tsc` этого
-не поймает.
+**A category mutation invalidates both `["categories"]` and `["expenses"]`.** This is the feature's
+main trap: `ExpenseDto` contains a snapshot of the category, so without the second invalidation a
+renamed or recoloured category keeps rendering the old way in the expenses table. `tsc` will not
+catch this.
 
-**Компоненты формы пишем руками по образцу `login/page.tsx`.** `src/components/ui/` пуст, кроме
-`.gitkeep`. Ставить shadcn ради этой фичи — расширение объёма.
+**Form components are written by hand, modelled on `login/page.tsx`.** `src/components/ui/` is empty
+apart from `.gitkeep`. Installing shadcn for this feature would be scope creep.
 
-### Выбор библиотеки эмодзи
+### Choosing the emoji library
 
-`emoji-picker-react@^4.19.1`. Проверено по реестру npm, а не по памяти:
+`emoji-picker-react@^4.19.1`. Verified against the npm registry, not from memory:
 
-| Пакет               | Почему не он                                                 |
-| ------------------- | ------------------------------------------------------------ |
-| `@emoji-mart/react` | peer `react "^16.8 \|\| ^17 \|\| ^18"` — React 19 не заявлен |
-| `frimousse`         | тянет данные emojibase с CDN в рантайме                      |
+| Package             | Why not it                                                     |
+| ------------------- | -------------------------------------------------------------- |
+| `@emoji-mart/react` | peer `react "^16.8 \|\| ^17 \|\| ^18"` — React 19 not declared |
+| `frimousse`         | pulls emojibase data from a CDN at runtime                     |
 
-`emoji-picker-react` заявляет `react >=16`, имеет одну транзитивную зависимость (`flairup`)
-и везёт датасет внутри пакета — 4.19.1 распаковывается в 34 МБ на 369 файлов, что без
-встроенных данных невозможно.
+`emoji-picker-react` declares `react >=16`, has one transitive dependency (`flairup`)
+and ships the dataset inside the package — 4.19.1 unpacks to 34 MB across 369 files, which is
+impossible without bundled data.
 
-Две проверки install-конфига, обе уже пройдены:
+Two install-config checks, both already passed:
 
-- postinstall-скрипта нет → запись в **`allowBuilds` не нужна**
-- 4.19.1 опубликована 2026-04-27, ей три месяца → она вне любого окна `minimumReleaseAge`,
-  запись в **`minimumReleaseAgeExclude` тоже не нужна**
+- no postinstall script → **no `allowBuilds` entry needed**
+- 4.19.1 was published 2026-04-27, three months ago → it is outside any `minimumReleaseAge` window,
+  so **no `minimumReleaseAgeExclude` entry either**
 
-Грузим лениво, чтобы датасет не попал в основной бандл:
+We load it lazily so the dataset does not land in the main bundle:
 
 ```ts
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 ```
 
-**Рядом с этим НЕЛЬЗЯ писать `import { EmojiStyle }`.** `EmojiStyle` — рантайм-enum, а не тип:
-статический импорт затянет весь модуль в основной бандл и молча обнулит `dynamic()`.
-Передаём строковый литерал: `emojiStyle="native"`.
+**Alongside that you MUST NOT write `import { EmojiStyle }`.** `EmojiStyle` is a runtime enum, not a type:
+a static import drags the whole module into the main bundle and silently nullifies `dynamic()`.
+We pass a string literal instead: `emojiStyle="native"`.
 
-### Файлы
+### Files
 
 - `package.json` — `emoji-picker-react@^4.19.1`
-- `src/lib/queries/categories.ts` — новый: `categoriesQueryOptions` и функции мутаций,
-  чтобы страница категорий и фильтр трат делили один ключ кэша
-- `src/app/categories/page.tsx` — новая страница
-- `src/app/expenses/page.tsx` — чипсы фильтра
-- `src/app/page.tsx` — ссылка «Categories» (навигации в проекте нет вообще)
+- `src/lib/queries/categories.ts` — new: `categoriesQueryOptions` and the mutation functions,
+  so the categories page and the expense filter share one cache key
+- `src/app/categories/page.tsx` — new page
+- `src/app/expenses/page.tsx` — the filter chips
+- `src/app/page.tsx` — a "Categories" link (the project has no navigation at all)
 
-Переиспользуется: `apiClient` / `ApiError` (`src/lib/api-client.ts`), паттерн `useForm` +
-`zodResolver` + инлайновые Tailwind-классы из `src/app/login/page.tsx`.
+Reused: `apiClient` / `ApiError` (`src/lib/api-client.ts`), the `useForm` + `zodResolver` pattern
+and the inline Tailwind classes from `src/app/login/page.tsx`.
 
-### Поведение
+### Behaviour
 
 **`/categories`** (`"use client"`):
 
 - `useQuery(["categories"])` → `CategoryListItemDto[]`
-- **Поиск** — контролируемый input, фильтрация на клиенте по
+- **Search** — a controlled input, filtered on the client by
   `name.toLowerCase().includes(...)`
-- **Строка списка** — эмодзи (или нейтральный плейсхолдер), имя, образец цвета,
-  `expenseCount`, кнопки редактирования и удаления
-- **Форма добавления/редактирования** — один компонент на оба сценария:
-  - имя — `z.string().min(1).max(50)`
-  - цвет — `<input type="color">` рядом с кнопкой «Без цвета». `type="color"` всегда
-    возвращает значение (по умолчанию `#000000`), поэтому без этой кнопки `null` недостижим
-  - иконка — кнопка с текущим эмодзи, разворачивающая `EmojiPicker`, плюс «Убрать иконку».
-    `onEmojiClick` отдаёт `{ emoji }` — это и есть символ для отправки
-- **Удаление** — подтверждение, называющее последствие: «Удалить Groceries? Её 12 трат
-  сохранятся, но станут без категории». Используем `<dialog>` или инлайновое состояние,
-  а не `window.confirm` — браузерный модал блокирует цикл событий и не тестируется
-- **Инвалидация** — после каждой мутации инвалидируем `["categories"]` **и** `["expenses"]`
+- **A list row** — the emoji (or a neutral placeholder), the name, a colour swatch,
+  `expenseCount`, and edit and delete buttons
+- **The add/edit form** — one component for both scenarios:
+  - name — `z.string().min(1).max(50)`
+  - colour — an `<input type="color">` next to a "No color" button. `type="color"` always
+    returns a value (`#000000` by default), so without that button `null` is unreachable
+  - icon — a button showing the current emoji that expands `EmojiPicker`, plus "Remove icon".
+    `onEmojiClick` hands back `{ emoji }` — that is the character to send
+- **Deletion** — a confirmation that names the consequence: "Delete Groceries?" / "Its 12 expenses
+  will remain, but become uncategorized." We use a `<dialog>` or inline state rather than
+  `window.confirm` — the browser modal blocks the event loop and is untestable
+- **Invalidation** — after every mutation, invalidate `["categories"]` **and** `["expenses"]`
 
-**`/expenses`** — ряд чипсов: «Все», по чипсу на категорию (эмодзи + имя + счётчик, подкрашен
-её цветом) и «Без категории». Фильтрация на клиенте по уже загруженным тратам
-(`categoryId === selected`, либо `=== null`). Счётчик записей в шапке и итог `sumAmounts`
-пересчитываются по отфильтрованному набору — это и есть полезное поведение.
+**`/expenses`** — a row of chips: "All", one chip per category (emoji + name + counter, tinted with
+its colour) and "Uncategorized". Filtering happens on the client over the already-loaded expenses
+(`categoryId === selected`, or `=== null`). The record counter in the header and the `sumAmounts`
+total recompute over the filtered set — that is the useful behaviour.
 
-### Порядок и проверка
+### Order and checks
 
-Ставится после бэкенда: `pnpm --filter @expense-tracker/frontend add emoji-picker-react` →
-`lib/queries/categories.ts` → `/categories` → фильтр на `/expenses` → ссылки.
+Installed after the backend: `pnpm --filter @expense-tracker/frontend add emoji-picker-react` →
+`lib/queries/categories.ts` → `/categories` → the filter on `/expenses` → the links.
 
-Проверка вручную (`pnpm dev`, логин `demo@example.com` / `password123`):
+Manual checks (`pnpm dev`, logging in as `demo@example.com` / `password123`):
 
-1. `/categories` показывает четыре сидовые категории с эмодзи, цветами и счётчиками
-2. Ввод «gro» в поиск → только Groceries
-3. Добавление категории через пикер эмодзи — появляется без ручного обновления страницы
-4. Смена цвета Groceries → на `/expenses` точка **нового** цвета (проверка инвалидации `["expenses"]`)
-5. Удаление категории → подтверждение называет число трат; после подтверждения её траты
-   на `/expenses` читаются как «Uncategorized»
-6. Клик по чипсу категории на `/expenses` → таблица, счётчик записей и итог сужаются до неё;
-   «Без категории» показывает отвязанные строки
+1. `/categories` shows the four seeded categories with emoji, colours and counters
+2. Typing "gro" into search → only Groceries
+3. Adding a category through the emoji picker — it appears without a manual page refresh
+4. Changing the colour of Groceries → on `/expenses` the dot is the **new** colour (the `["expenses"]` invalidation check)
+5. Deleting a category → the confirmation names the number of expenses; after confirming, its expenses
+   on `/expenses` read as "Uncategorized"
+6. Clicking a category chip on `/expenses` → the table, the record counter and the total narrow to it;
+   "Uncategorized" shows the detached rows
 
-## Вне объёма
+## Out of scope
 
-- **Массового `DELETE /api/categories` нет** — «удаление всех категорий пользователя» в задании
-  означает, что CRUD ограничен своими категориями, а не удаление одним запросом.
-- **Серверные поиск и фильтрация не делаются** — ни `?search=`, ни `?categoryId=`.
-  При отсутствии пагинации всё уже в кэше клиента.
-- **Поведение удаления не меняется** — `onDelete: SetNull` остаётся, траты сохраняются
-  и становятся без категории. Запрет удаления используемых категорий не вводим.
-- **shadcn-компоненты не ставятся** — `src/components/ui/` остаётся пустым, формы пишутся
-  по образцу `login/page.tsx`.
-- **`CategoriesService` не переводится на CQRS** — он, как и `ExpensesService`, инжектит
-  `PrismaService` напрямую; CLAUDE.md фиксирует это как осознанное решение, ограниченное
-  модулем users.
-- **Отдельного гарда владения категорией нет** — владение проверяется в сервисе через
-  `where: { id, userId }`, как и во всём остальном проекте.
-- **Порядок и группировка категорий, бюджеты на категорию, иконки из набора вместо эмодзи** —
-  не входят.
+- **There is no bulk `DELETE /api/categories`** — "deleting all of the user's categories" in the assignment
+  means the CRUD is scoped to one's own categories, not deletion in a single request.
+- **No server-side search or filtering** — neither `?search=` nor `?categoryId=`.
+  With no pagination, everything is already in the client cache.
+- **Deletion behaviour does not change** — `onDelete: SetNull` stays, expenses survive
+  and become uncategorized. We do not forbid deleting categories that are in use.
+- **No shadcn components are installed** — `src/components/ui/` stays empty, and the forms are written
+  modelled on `login/page.tsx`.
+- **`CategoriesService` is not moved onto CQRS** — like `ExpensesService`, it injects
+  `PrismaService` directly; CLAUDE.md records this as a deliberate decision scoped to the
+  users module.
+- **There is no separate category ownership guard** — ownership is checked in the service via
+  `where: { id, userId }`, as everywhere else in the project.
+- **Category ordering and grouping, per-category budgets, icons from a set instead of emoji** —
+  not included.

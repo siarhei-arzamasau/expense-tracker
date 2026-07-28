@@ -1,91 +1,91 @@
-# Users module + CQRS для межмодульного взаимодействия
+# Users module + CQRS for cross-module communication
 
 ## Context
 
-JWT-авторизация в репозитории **уже реализована и работает**: `POST /api/auth/register`,
+JWT authentication in the repository is **already implemented and working**: `POST /api/auth/register`,
 `POST /api/auth/login`, `GET /api/auth/me`, `JwtStrategy`, `JwtAuthGuard`, `@CurrentUser()`,
-argon2-хэширование, модель `User`. Скаффолд обогнал шаг курса.
+argon2 hashing, the `User` model. The scaffold ran ahead of the course step.
 
-Чего нет и что нужно сделать:
+What is missing and needs doing:
 
-1. **Слой пользователя отсутствует** — `AuthService` инжектит `PrismaService` напрямую.
-   Нужны `UsersRepository` (доступ к данным) и `UsersService` (бизнес-правила).
-2. **Нет эндпоинтов управления аккаунтом** — профиль, смена пароля, удаление.
-3. **Поле называется `password`, хотя хранит хэш** — переименовать в `passwordHash`.
-4. **Межмодульное взаимодействие делаем через CQRS** (`@nestjs/cqrs@11.0.3`): `AuthModule`
-   больше не импортирует `UsersModule` и не инжектит `UsersService` — только шины.
+1. **There is no user layer** — `AuthService` injects `PrismaService` directly.
+   We need `UsersRepository` (data access) and `UsersService` (business rules).
+2. **No account management endpoints** — profile, password change, deletion.
+3. **The field is called `password` even though it stores a hash** — rename it to `passwordHash`.
+4. **Cross-module communication goes through CQRS** (`@nestjs/cqrs@11.0.3`): `AuthModule`
+   no longer imports `UsersModule` and no longer injects `UsersService` — only the buses.
 
-Результат: `AuthModule` не знает ни о Prisma, ни о `UsersService`; единственная точка входа
-в пользовательский модуль — команды и запросы. Публичный контракт API не ломается,
-фронтенд продолжает работать без изменений.
+The result: `AuthModule` knows nothing about Prisma or `UsersService`; the single entry point
+into the users module is commands and queries. The public API contract does not break,
+and the frontend keeps working unchanged.
 
-## Ключевые решения (и почему)
+## Key decisions (and why)
 
-**Хендлеры — транспортные адаптеры, доменная логика в `UsersService`.** Хендлер
-разворачивает сообщение и вызывает метод сервиса. Это позволяет юнит-тестировать логику
-без шины, и `UsersService` не вырождается в pass-through: в нём argon2, проверки конфликтов
-email и маппинг в `UserDto`, общие для нескольких хендлеров.
+**Handlers are transport adapters; domain logic lives in `UsersService`.** A handler
+unwraps the message and calls a service method. This makes the logic unit-testable
+without the bus, and `UsersService` does not degenerate into a pass-through: it holds argon2,
+the email conflict checks and the mapping to `UserDto`, all shared across several handlers.
 
-**`UsersModule` НЕ экспортирует `UsersService`.** В этом смысл упражнения. Проверено:
-`AuthService` не инжектится ни в один другой модуль, `JwtAuthGuard`/`@CurrentUser()`
-импортируются файлово (см. `apps/backend/src/expenses/expenses.controller.ts:17`), поэтому
-запрет на экспорт ничего не ломает.
+**`UsersModule` does NOT export `UsersService`.** That is the point of the exercise. Verified:
+`AuthService` is not injected into any other module, and `JwtAuthGuard`/`@CurrentUser()`
+are imported by file path (see `apps/backend/src/expenses/expenses.controller.ts:17`), so
+forbidding the export breaks nothing.
 
-**`CqrsModule.forRoot()` в `AppModule`.** Проверено по исходникам 11.0.3: `forRoot()`
-возвращает модуль с `global: true`, голый `CqrsModule` — нет. Смешивать два способа —
-получить невнятное `Nest can't resolve CommandBus` при старте. Глобальная регистрация
-согласуется с уже глобальными `PrismaModule` и `ConfigModule`.
+**`CqrsModule.forRoot()` in `AppModule`.** Verified against the 11.0.3 sources: `forRoot()`
+returns a module with `global: true`, the bare `CqrsModule` does not. Mixing the two forms
+yields an opaque `Nest can't resolve CommandBus` at startup. Global registration is
+consistent with the already-global `PrismaModule` and `ConfigModule`.
 
-**Пароль в открытом виде идёт по шине — это принято осознанно.** `CommandBus.execute` и
-`QueryBus.execute` вызывают `publisher.publish(message)` для каждого сообщения. Пароль несут
-`RegisterUserCommand`, `ChangeUserPasswordCommand`, `DeleteUserCommand` и
-`VerifyUserCredentialsQuery` — обходить это точечно бессмысленно. Каждый такой класс
-получает комментарий-предупреждение: при добавлении логирующего publisher эти поля
-обязаны редактироваться.
+**Plaintext passwords travel over the bus — accepted deliberately.** `CommandBus.execute` and
+`QueryBus.execute` call `publisher.publish(message)` for every message. Passwords are carried by
+`RegisterUserCommand`, `ChangeUserPasswordCommand`, `DeleteUserCommand` and
+`VerifyUserCredentialsQuery` — working around it case by case is pointless. Each such class
+gets a warning comment: if a logging publisher is ever added, these fields
+must be redacted.
 
-**`GetUserByIdQuery` возвращает `UserDto | null`, а не бросает `NotFoundException`.**
-`/auth/me` обязан отдавать **401** на токен несуществующего пользователя: фронтенд
-разлогинивает именно по 401 (`ApiError.isUnauthorized`, `apps/frontend/src/lib/api-client.ts:14`).
-HTTP-семантику выбирает вызывающий модуль, а не хендлер.
+**`GetUserByIdQuery` returns `UserDto | null` rather than throwing `NotFoundException`.**
+`/auth/me` must answer **401** for a token naming a nonexistent user: the frontend logs out
+on 401 and on nothing else (`ApiError.isUnauthorized`, `apps/frontend/src/lib/api-client.ts:14`).
+The calling module picks the HTTP semantics, not the handler.
 
-**`VerifyUserCredentialsQuery` — именно query.** Побочных эффектов нет: argon2-сравнение
-и возврат. Возвращает `UserDto | null`; `UnauthorizedException("Invalid email or password")`
-бросает `AuthService`, потому что он владеет эндпоинтом.
+**`VerifyUserCredentialsQuery` is a query, and rightly so.** It has no side effects: an argon2
+comparison and a return. It resolves to `UserDto | null`; `UnauthorizedException("Invalid email or password")`
+is thrown by `AuthService`, because it owns the endpoint.
 
-**Событий (EventBus) нет, `lastLoginAt` нет.** События без подписчиков — мёртвый код;
-запись `lastLoginAt` при логине была бы побочным эффектом в query, что ломает
-разделение command/query.
+**No events (EventBus), no `lastLoginAt`.** Events without subscribers are dead code;
+writing `lastLoginAt` on login would be a side effect inside a query, which breaks the
+command/query split.
 
-## Целевая структура
+## Target structure
 
 ```
 apps/backend/src/users/
-  users.module.ts             # контроллер + сервис + репозиторий + хендлеры; НИЧЕГО не экспортирует
-  users.controller.ts         # HTTP, всё под JwtAuthGuard, диспатчит в шины
-  users.service.ts            # argon2, конфликты email, маппинг в UserDto
-  users.repository.ts         # единственное место, где users-таблица трогает Prisma
+  users.module.ts             # controller + service + repository + handlers; exports NOTHING
+  users.controller.ts         # HTTP, all under JwtAuthGuard, dispatches to the buses
+  users.service.ts            # argon2, email conflicts, mapping to UserDto
+  users.repository.ts         # the one place where the users table meets Prisma
   dto/{update-profile,change-password,delete-account}.dto.ts
-  commands/                   # ← публичный контракт модуля
+  commands/                   # ← the module's public contract
     {register-user,update-user-profile,change-user-password,delete-user}.command.ts
     handlers/*.handler.ts + index.ts (USERS_COMMAND_HANDLERS)
-  queries/                    # ← публичный контракт модуля
+  queries/                    # ← the module's public contract
     {get-user-by-id,verify-user-credentials}.query.ts
     handlers/*.handler.ts + index.ts (USERS_QUERY_HANDLERS)
   users.service.spec.ts
   users.cqrs.spec.ts
 ```
 
-`commands/` и `queries/` — единственное, что другим модулям разрешено импортировать.
-`AuthModule` импортирует оттуда классы сообщений (обычный TS-импорт, не Nest-импорт модуля),
-поэтому DI-цикла не возникает.
+`commands/` and `queries/` are the only things other modules are allowed to import.
+`AuthModule` imports the message classes from there (a plain TS import, not a Nest module import),
+so no DI cycle arises.
 
-## Контракт сообщений
+## Message contract
 
-Типобезопасность через базовые классы `Command<R>` / `Query<TResult>` из `@nestjs/cqrs`
-(проверено в 11.0.3): `commandBus.execute(new RegisterUserCommand(...))` выводит `UserDto`
-без явных generic-параметров.
+Type safety comes from the `Command<R>` / `Query<TResult>` base classes in `@nestjs/cqrs`
+(verified in 11.0.3): `commandBus.execute(new RegisterUserCommand(...))` infers `UserDto`
+with no explicit generic parameters.
 
-| Сообщение                    | Полезная нагрузка                      | Результат         | Исключения хендлера                          |
+| Message                      | Payload                                | Result            | Handler exceptions                           |
 | ---------------------------- | -------------------------------------- | ----------------- | -------------------------------------------- |
 | `RegisterUserCommand`        | `email, password, name?`               | `UserDto`         | `ConflictException`                          |
 | `UpdateUserProfileCommand`   | `userId, name?, email?`                | `UserDto`         | `ConflictException`, `NotFoundException`     |
@@ -94,106 +94,106 @@ apps/backend/src/users/
 | `GetUserByIdQuery`           | `userId`                               | `UserDto \| null` | —                                            |
 | `VerifyUserCredentialsQuery` | `email, password`                      | `UserDto \| null` | —                                            |
 
-Хэш пароля **никогда не покидает `UsersService`**: наружу отдаётся только `UserDto`.
+The password hash **never leaves `UsersService`**: only `UserDto` goes out.
 
-## Эндпоинты
+## Endpoints
 
-Все под `JwtAuthGuard`, `userId` — только из `@CurrentUser()`, из тела запроса никогда.
-`GET /api/auth/me` остаётся как есть, дублирующий `GET /users/me` не добавляется.
+All under `JwtAuthGuard`; `userId` comes from `@CurrentUser()` only, never from the request body.
+`GET /api/auth/me` stays as it is — no duplicate `GET /users/me` is added.
 
-| Метод    | Путь                     | Тело                               | Ответ             |
+| Method   | Path                     | Body                               | Response          |
 | -------- | ------------------------ | ---------------------------------- | ----------------- |
 | `PATCH`  | `/api/users/me`          | `{ name?, email? }`                | `200` + `UserDto` |
 | `PATCH`  | `/api/users/me/password` | `{ currentPassword, newPassword }` | `204`             |
 | `DELETE` | `/api/users/me`          | `{ password }`                     | `204`             |
 
-Валидация — `class-validator` DTO (по CLAUDE.md; в `packages/shared` правила не дублируются):
-`@IsEmail`, `@MinLength(8) @MaxLength(72)` для `newPassword`, `@MaxLength(100)` для `name`.
-В `UpdateProfileDto` оба поля опциональны, но пустое тело отвергается — иначе PATCH без полей
-молча вернёт 200.
+Validation is `class-validator` DTOs (per CLAUDE.md; the rules are not duplicated into `packages/shared`):
+`@IsEmail`, `@MinLength(8) @MaxLength(72)` for `newPassword`, `@MaxLength(100)` for `name`.
+Both fields in `UpdateProfileDto` are optional, but an empty body is rejected — otherwise a PATCH
+with no fields would silently answer 200.
 
-## Файлы
+## Files
 
 **`packages/database`**
 
 - `prisma/schema.prisma:32` — `password` → `passwordHash`
-- `prisma/migrations/<timestamp>_rename_password_to_password_hash/migration.sql` — новый,
-  SQL правится вручную (см. ниже)
+- `prisma/migrations/<timestamp>_rename_password_to_password_hash/migration.sql` — new,
+  the SQL is edited by hand (see below)
 - `prisma/seed.ts:53` — `password:` → `passwordHash:`
 
 **`packages/shared`**
 
-- `src/types/user.ts` — новый: сюда переезжает `UserDto` из `types/auth.ts`, добавляются
-  `UpdateProfileInput`, `ChangePasswordInput`, `DeleteAccountInput`. Реэкспорт идёт через
-  `export *` в `src/index.ts`, поэтому внешние импорты `UserDto` не ломаются.
-- `src/types/auth.ts` — убрать `UserDto`, импортировать его из `./user` для `AuthResponse`
+- `src/types/user.ts` — new: `UserDto` moves here from `types/auth.ts`, joined by
+  `UpdateProfileInput`, `ChangePasswordInput`, `DeleteAccountInput`. Re-export goes through
+  `export *` in `src/index.ts`, so external `UserDto` imports do not break.
+- `src/types/auth.ts` — drop `UserDto`, import it from `./user` for `AuthResponse`
 - `src/index.ts` — `export * from "./types/user"`
-- `src/constants/api-routes.ts` — блок `users: { me: "users/me", password: "users/me/password" }`
+- `src/constants/api-routes.ts` — a `users: { me: "users/me", password: "users/me/password" }` block
 
 **`apps/backend`**
 
-- `package.json` — зависимость `@nestjs/cqrs` `^11.0.3` (peer deps совместимы с Nest 11 / rxjs ^7.8.2)
-- `src/app.module.ts` — `CqrsModule.forRoot()` и `UsersModule` в `imports`
-- `src/users/**` — всё новое, по структуре выше
-- `src/auth/auth.service.ts` — инжектит `CommandBus` + `QueryBus` вместо `PrismaService`;
+- `package.json` — the `@nestjs/cqrs` `^11.0.3` dependency (peer deps are compatible with Nest 11 / rxjs ^7.8.2)
+- `src/app.module.ts` — `CqrsModule.forRoot()` and `UsersModule` in `imports`
+- `src/users/**` — all new, per the structure above
+- `src/auth/auth.service.ts` — injects `CommandBus` + `QueryBus` instead of `PrismaService`;
   `register` → `RegisterUserCommand`, `login` → `VerifyUserCredentialsQuery`,
-  `findById` → `GetUserByIdQuery` + `UnauthorizedException` при `null`.
-  argon2 и Prisma из файла уходят полностью.
-- `src/auth/auth.module.ts` — импорт `UsersModule` не добавляется (шины глобальны)
-- `src/auth/auth.service.spec.ts` — новый
-- `test/app.e2e-spec.ts` — добавить проверки 401 без токена на `PATCH /api/users/me` и
+  `findById` → `GetUserByIdQuery` + `UnauthorizedException` on `null`.
+  argon2 and Prisma leave the file entirely.
+- `src/auth/auth.module.ts` — no `UsersModule` import is added (the buses are global)
+- `src/auth/auth.service.spec.ts` — new
+- `test/app.e2e-spec.ts` — add 401-without-token checks for `PATCH /api/users/me` and
   `DELETE /api/users/me`
 
-**Что переиспользуется, а не пишется заново:** `JwtAuthGuard`
+**What is reused rather than written from scratch:** `JwtAuthGuard`
 (`src/auth/guards/jwt-auth.guard.ts`), `@CurrentUser()`
 (`src/auth/decorators/current-user.decorator.ts`), `AuthenticatedUser` (`src/auth/types.ts`),
-`PrismaService` (`src/prisma/prisma.service.ts`, глобальный). Паттерн `interface UserRecord` +
-приватный `toDto()` берётся из `src/categories/categories.service.ts:7-12,48-55`.
+`PrismaService` (`src/prisma/prisma.service.ts`, global). The `interface UserRecord` +
+private `toDto()` pattern comes from `src/categories/categories.service.ts:7-12,48-55`.
 
-## Порядок работ
+## Order of work
 
 1. `pnpm --filter @expense-tracker/backend add @nestjs/cqrs`
-2. **Миграция переименования.** Prisma по умолчанию сгенерирует `DROP COLUMN` + `ADD COLUMN`,
-   что уничтожит все хэши. Поэтому:
-   - правка `schema.prisma`
+2. **The rename migration.** By default Prisma will generate `DROP COLUMN` + `ADD COLUMN`,
+   which destroys every hash. So:
+   - edit `schema.prisma`
    - `pnpm --filter @expense-tracker/database exec prisma migrate dev --create-only --name rename_password_to_password_hash`
-   - **прочитать сгенерированный `migration.sql`** и заменить его тело на
+   - **read the generated `migration.sql`** and replace its body with
      `ALTER TABLE "users" RENAME COLUMN "password" TO "passwordHash";`
    - `pnpm db:migrate && pnpm db:generate`
-   - обновить `seed.ts` и `auth.service.ts`, чтобы дерево снова компилировалось
-3. `packages/shared`: `types/user.ts`, правки `auth.ts` / `index.ts` / `api-routes.ts`
-4. `users/`: repository → service → команды/запросы + хендлеры → DTO → контроллер → module
-5. Перевод `AuthService` на шины
-6. Тесты
+   - update `seed.ts` and `auth.service.ts` so the tree compiles again
+3. `packages/shared`: `types/user.ts`, edits to `auth.ts` / `index.ts` / `api-routes.ts`
+4. `users/`: repository → service → commands/queries + handlers → DTOs → controller → module
+5. Move `AuthService` onto the buses
+6. Tests
 
-## Ловушки
+## Pitfalls
 
-- **`import type` ломает Nest DI.** Всё, что стоит в сигнатуре конструктора или в `@Body()`,
-  импортируется как значение: `import { CommandBus }`, `import { UsersRepository }`,
-  `import { UpdateProfileDto }`. Ошибка проявится не на типизации, а как
-  "Nest can't resolve dependencies" при старте (CLAUDE.md фиксирует это отдельно).
-  Класс команды в `@CommandHandler(RegisterUserCommand)` — тоже значение.
-- **Хендлеры регистрируются на `onApplicationBootstrap`** через `ExplorerService`. В тестах,
-  где не вызван `init()`, шина их не увидит и упадёт с `CommandHandlerNotFoundException`.
-- **`apiClient.delete`** (`apps/frontend/src/lib/api-client.ts:64`) не умеет отправлять тело.
-  Фронтенд мы не трогаем, но если `DELETE /users/me` когда-нибудь будут подключать к UI,
-  хелперу понадобится параметр body.
+- **`import type` breaks Nest DI.** Anything appearing in a constructor signature or in `@Body()`
+  is imported as a value: `import { CommandBus }`, `import { UsersRepository }`,
+  `import { UpdateProfileDto }`. The error shows up not in typing but as
+  "Nest can't resolve dependencies" at startup (CLAUDE.md records this separately).
+  The command class in `@CommandHandler(RegisterUserCommand)` is a value too.
+- **Handlers are registered on `onApplicationBootstrap`** via `ExplorerService`. In tests
+  where `init()` is not called, the bus will not see them and fails with `CommandHandlerNotFoundException`.
+- **`apiClient.delete`** (`apps/frontend/src/lib/api-client.ts:64`) cannot send a body.
+  We are not touching the frontend, but if `DELETE /users/me` is ever wired into the UI,
+  the helper will need a body parameter.
 
-## Тесты
+## Tests
 
-- **`users.service.spec.ts`** — юнит-тесты с мок-репозиторием, по образцу
-  `src/expenses/expenses.service.spec.ts` (фабрика моков + `Test.createTestingModule`):
-  конфликт email при обновлении, неверный текущий пароль, успешная смена пароля
-  (утверждаем, что в репозиторий уходит **хэш**, а не сырой пароль), пользователь не найден.
-- **`users.cqrs.spec.ts`** — единственный тест, который ловит незарегистрированный хендлер
-  (главная причина падений CQRS в рантайме). Собирает testing-модуль с `CqrsModule.forRoot()`,
-  всеми хендлерами и мок-`UsersRepository`, вызывает `await moduleRef.init()` и прогоняет
-  каждую команду и каждый запрос через шину.
-- **`auth.service.spec.ts`** — мок `CommandBus`/`QueryBus`: register отдаёт токен,
-  login на `null` от запроса даёт 401, `/auth/me` на `null` даёт 401 (не 404).
-- **`test/app.e2e-spec.ts`** — плюс два кейса на 401 без токена.
+- **`users.service.spec.ts`** — unit tests with a mock repository, modelled on
+  `src/expenses/expenses.service.spec.ts` (mock factory + `Test.createTestingModule`):
+  email conflict on update, wrong current password, successful password change
+  (asserting that what reaches the repository is the **hash**, not the raw password), user not found.
+- **`users.cqrs.spec.ts`** — the one test that catches an unregistered handler
+  (the main cause of CQRS failures at runtime). It builds a testing module with `CqrsModule.forRoot()`,
+  all the handlers and a mock `UsersRepository`, calls `await moduleRef.init()` and runs
+  every command and every query through the bus.
+- **`auth.service.spec.ts`** — mock `CommandBus`/`QueryBus`: register returns a token,
+  login on a `null` from the query gives 401, `/auth/me` on `null` gives 401 (not 404).
+- **`test/app.e2e-spec.ts`** — plus two cases for 401 without a token.
 
-## Верификация
+## Verification
 
 ```bash
 pnpm typecheck && pnpm lint && pnpm test && pnpm build
@@ -202,29 +202,29 @@ pnpm db:migrate && pnpm db:generate && pnpm db:seed
 pnpm --filter @expense-tracker/backend test:e2e
 ```
 
-Приёмка вручную (`pnpm dev`, Swagger на http://localhost:3001/api/docs):
+Manual acceptance (`pnpm dev`, Swagger at http://localhost:3001/api/docs):
 
-1. Логин `demo@example.com` / `password123` — работает после переименования колонки
-   (доказывает, что миграция сохранила хэши, а не пересоздала колонку).
-2. `psql` → `\d users` показывает колонку `passwordHash` и **отсутствие** `password`.
-3. `GET /api/auth/me` с токеном → `UserDto`; без токена → 401.
-4. `PATCH /api/users/me` со сменой имени → 200 и обновлённый `UserDto`;
-   с email уже существующего пользователя → 409.
-5. `PATCH /api/users/me/password` с неверным `currentPassword` → 401; с верным → 204,
-   после чего логин со старым паролем даёт 401, а с новым — 200.
-6. `DELETE /api/users/me` с неверным паролем → 401; с верным → 204, после чего
-   `GET /api/auth/me` со старым токеном → **401**, а траты и категории удалены каскадом.
-7. Фронтенд на http://localhost:3000 логинится и показывает список трат — контракт не сломан.
+1. Login as `demo@example.com` / `password123` — works after the column rename
+   (proving the migration preserved the hashes rather than recreating the column).
+2. `psql` → `\d users` shows a `passwordHash` column and **no** `password`.
+3. `GET /api/auth/me` with a token → `UserDto`; without a token → 401.
+4. `PATCH /api/users/me` changing the name → 200 and an updated `UserDto`;
+   with an email that already belongs to another user → 409.
+5. `PATCH /api/users/me/password` with a wrong `currentPassword` → 401; with the right one → 204,
+   after which logging in with the old password gives 401 and with the new one gives 200.
+6. `DELETE /api/users/me` with a wrong password → 401; with the right one → 204, after which
+   `GET /api/auth/me` with the old token → **401**, and expenses and categories are cascade-deleted.
+7. The frontend at http://localhost:3000 logs in and shows the expense list — the contract is intact.
 
-## Вне объёма
+## Out of scope
 
-- `CategoriesService` / `ExpensesService` под репозитории и CQRS **не переписываются** —
-  они инжектят `PrismaService` напрямую. Несогласованность останется; отметить её
-  комментарием в `users.repository.ts`.
-- Фронтенд не трогаем: форма `UserDto` не меняется, новые эндпоинты остаются без UI.
-- Ролей, отзыва токенов, refresh-ротации и rate limiting нет — CLAUDE.md фиксирует это как
-  осознанные упрощения шаблона. Следствие: **токен удалённого пользователя остаётся валидным
-  до истечения срока**; запросы вернут пустые списки, так как строки удалены каскадом.
-  Задокументировать как известное ограничение.
-- Claim `email` в JWT устаревает после смены email. Ни одна проверка на него не опирается
-  (везде `user.id`) — оставляем, с комментарием в `src/auth/types.ts`.
+- `CategoriesService` / `ExpensesService` are **not rewritten** onto repositories and CQRS —
+  they inject `PrismaService` directly. The inconsistency stays; note it with a
+  comment in `users.repository.ts`.
+- The frontend is untouched: the shape of `UserDto` does not change, and the new endpoints get no UI.
+- There are no roles, token revocation, refresh rotation or rate limiting — CLAUDE.md records these as
+  deliberate template simplifications. A consequence: **a deleted user's token stays valid
+  until it expires**; requests return empty lists, because the rows went with the cascade.
+  Document this as a known limitation.
+- The `email` claim in the JWT goes stale after an email change. No check relies on it
+  (everything uses `user.id`) — leave it, with a comment in `src/auth/types.ts`.

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Everything you produce is in English, whatever language the request arrives in.** Plans, code, comments, commit messages, documentation, PR descriptions, and chat replies — all English, including when the prompt, an issue, or a pasted spec is in Russian. Translate rather than mirror the input language.
 
-Two things this rule does not do. It does not ask you to rewrite existing Russian text you happen to read — several `.claude/.plans/` documents and a couple of schema comments are in Russian and stay that way, because they are dated records of past decisions. And it does not apply to user-facing product strings, which follow whatever the feature requires.
+Two things this rule does not do. It does not ask you to rewrite existing Russian text you happen to read — the `PasswordResetToken.tokenHash` doc comment in `schema.prisma` is in Russian and stays that way, because it is a dated record of a past decision; a plan or doc quoting a schema comment quotes it verbatim rather than translating it, so that the quote keeps matching the code. And it does not apply to user-facing product strings, which follow whatever the feature requires.
 
 ## Git commits
 

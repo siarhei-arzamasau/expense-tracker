@@ -27,7 +27,7 @@ export default function HomePage() {
           href="/login"
           className="border-border rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
         >
-          Log in
+          Log in / Register
         </Link>
       </div>
 

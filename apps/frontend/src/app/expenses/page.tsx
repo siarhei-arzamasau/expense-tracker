@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { apiClient, ApiError } from "@/lib/api-client";
+import { authStorage } from "@/lib/auth-storage";
 import { formatAmount, formatDate, sumAmounts } from "@/lib/format";
 import { categoriesQueryOptions } from "@/lib/queries/categories";
 
@@ -35,6 +36,7 @@ export default function ExpensesPage() {
       (error instanceof ApiError && error.isUnauthorized) ||
       (categoriesError instanceof ApiError && categoriesError.isUnauthorized)
     ) {
+      authStorage.clear();
       router.push("/login");
     }
   }, [categoriesError, error, router]);

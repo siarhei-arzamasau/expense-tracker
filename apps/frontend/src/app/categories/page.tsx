@@ -16,6 +16,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { ApiError } from "@/lib/api-client";
+import { authStorage } from "@/lib/auth-storage";
 import {
   categoriesQueryOptions,
   createCategory,
@@ -211,6 +212,7 @@ export default function CategoriesPage() {
 
   useEffect(() => {
     if (error instanceof ApiError && error.isUnauthorized) {
+      authStorage.clear();
       router.push("/login");
     }
   }, [error, router]);

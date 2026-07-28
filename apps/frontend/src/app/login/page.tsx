@@ -1,99 +1,62 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { API_ROUTES, type AuthResponse } from "@expense-tracker/shared";
-import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
-import { apiClient, ApiError } from "@/lib/api-client";
-import { authStorage } from "@/lib/auth-storage";
+import { LoginForm } from "@/components/auth/login-form";
+import { RegisterForm } from "@/components/auth/register-form";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// z.string().email() rather than Zod 4's newer top-level z.email(): it is valid
-// in both Zod 3 and 4, so bumping zod either direction will not break this file.
-const loginSchema = z.object({
-  email: z.string().email("Enter a valid email address"),
-  password: z.string().min(1, "Password is required"),
-});
-
-type LoginValues = z.infer<typeof loginSchema>;
-
-export default function LoginPage() {
-  const router = useRouter();
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: "demo@example.com", password: "password123" },
-  });
-
-  const login = useMutation({
-    mutationFn: (values: LoginValues) =>
-      apiClient.post<AuthResponse>(API_ROUTES.auth.login, values),
-    onSuccess: (data) => {
-      authStorage.set(data.accessToken);
-      router.push("/expenses");
-    },
-  });
+// The active tab still lives in useState rather than the URL — reading it
+// back would need its own useSearchParams call for no real benefit. The
+// ?reset=success banner below needs useSearchParams regardless, which is
+// what pulls in the Suspense boundary this page couldn't otherwise avoid.
+function LoginPageContent() {
+  const [tab, setTab] = useState("login");
+  const resetSucceeded = useSearchParams().get("reset") === "success";
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Log in</h1>
-        <p className="text-muted-foreground text-sm">Use the seeded demo account, or register.</p>
-      </div>
-
-      <form
-        onSubmit={handleSubmit((values) => login.mutate(values))}
-        className="space-y-4"
-        noValidate
-      >
-        <div className="space-y-1.5">
-          <label htmlFor="email" className="text-sm font-medium">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            className="border-input w-full rounded-md border px-3 py-2 text-sm"
-            {...register("email")}
-          />
-          {errors.email && <p className="text-destructive text-sm">{errors.email.message}</p>}
-        </div>
-
-        <div className="space-y-1.5">
-          <label htmlFor="password" className="text-sm font-medium">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            className="border-input w-full rounded-md border px-3 py-2 text-sm"
-            {...register("password")}
-          />
-          {errors.password && <p className="text-destructive text-sm">{errors.password.message}</p>}
-        </div>
-
-        {login.error && (
-          <p className="text-destructive text-sm" role="alert">
-            {login.error instanceof ApiError ? login.error.message : "Something went wrong"}
-          </p>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-2xl">Expense Tracker</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {resetSucceeded && (
+          <Alert>
+            <AlertDescription>
+              Your password has been reset. Log in with your new password.
+            </AlertDescription>
+          </Alert>
         )}
 
-        <button
-          type="submit"
-          disabled={login.isPending}
-          className="bg-primary text-primary-foreground w-full rounded-md px-4 py-2 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
-        >
-          {login.isPending ? "Logging in…" : "Log in"}
-        </button>
-      </form>
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="w-full">
+            <TabsTrigger value="login">Log in</TabsTrigger>
+            <TabsTrigger value="register">Register</TabsTrigger>
+          </TabsList>
+          {/* forceMount: Radix unmounts inactive tab content by default,
+              which would clear whatever was typed into the other form on
+              every switch. Keeping both mounted preserves it. */}
+          <TabsContent value="login" className="pt-4" forceMount>
+            <LoginForm />
+          </TabsContent>
+          <TabsContent value="register" className="pt-4" forceMount>
+            <RegisterForm />
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+      <Suspense fallback={null}>
+        <LoginPageContent />
+      </Suspense>
     </main>
   );
 }

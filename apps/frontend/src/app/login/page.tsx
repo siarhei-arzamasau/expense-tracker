@@ -38,11 +38,16 @@ function LoginPageContent() {
           </TabsList>
           {/* forceMount: Radix unmounts inactive tab content by default,
               which would clear whatever was typed into the other form on
-              every switch. Keeping both mounted preserves it. */}
-          <TabsContent value="login" className="pt-4" forceMount>
+              every switch. Keeping both mounted preserves it — but forceMount
+              also suppresses the `hidden` attribute Radix would otherwise set,
+              so the inactive panel has to be hidden here or both forms render
+              stacked on top of each other. display:none (not visibility or
+              opacity) is what keeps the hidden form out of the tab order and
+              the accessibility tree while its React state survives. */}
+          <TabsContent value="login" className="pt-4 data-[state=inactive]:hidden" forceMount>
             <LoginForm />
           </TabsContent>
-          <TabsContent value="register" className="pt-4" forceMount>
+          <TabsContent value="register" className="pt-4 data-[state=inactive]:hidden" forceMount>
             <RegisterForm />
           </TabsContent>
         </Tabs>

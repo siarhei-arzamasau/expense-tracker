@@ -6,8 +6,8 @@ import { CqrsModule } from "@nestjs/cqrs";
 
 import { AuthModule } from "./auth/auth.module";
 import { CategoriesModule } from "./categories/categories.module";
-import { ExpensesModule } from "./expenses/expenses.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { TransactionsModule } from "./transactions/transactions.module";
 import { UsersModule } from "./users/users.module";
 
 @Module({
@@ -30,7 +30,7 @@ import { UsersModule } from "./users/users.module";
     PrismaModule,
     AuthModule,
     UsersModule,
-    ExpensesModule,
+    TransactionsModule,
     CategoriesModule,
   ],
 })

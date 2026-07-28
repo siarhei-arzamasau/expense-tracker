@@ -12,10 +12,10 @@ export default function HomePage() {
 
       <div className="flex gap-3">
         <Link
-          href="/expenses"
+          href="/transactions"
           className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium transition-opacity hover:opacity-90"
         >
-          View expenses
+          View transactions
         </Link>
         <Link
           href="/categories"

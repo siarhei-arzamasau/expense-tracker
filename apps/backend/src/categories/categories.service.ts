@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@expense-tracker/database";
 import type { CategoryDto, CategoryListItemDto } from "@expense-tracker/shared";
 
 import { PrismaService } from "../prisma/prisma.service";
@@ -14,7 +15,7 @@ interface CategoryRecord {
 }
 
 interface CategoryListRecord extends CategoryRecord {
-  _count: { expenses: number };
+  _count: { transactions: number };
 }
 
 @Injectable()
@@ -24,7 +25,7 @@ export class CategoriesService {
   async findAll(userId: string): Promise<CategoryListItemDto[]> {
     const categories = await this.prisma.category.findMany({
       where: { userId },
-      include: { _count: { select: { expenses: true } } },
+      include: { _count: { select: { transactions: true } } },
       orderBy: { name: "asc" },
     });
     return categories.map((category) => this.toListItemDto(category));
@@ -72,9 +73,18 @@ export class CategoriesService {
 
   async remove(userId: string, id: string): Promise<void> {
     // Scope the delete by userId so one user cannot remove another's category.
-    const { count } = await this.prisma.category.deleteMany({ where: { id, userId } });
-    if (count === 0) {
-      throw new NotFoundException("Category not found");
+    try {
+      const { count } = await this.prisma.category.deleteMany({ where: { id, userId } });
+      if (count === 0) {
+        throw new NotFoundException("Category not found");
+      }
+    } catch (error) {
+      // Transaction.categoryId is required with onDelete: Restrict, so Postgres
+      // refuses the delete (P2003) instead of leaving orphaned rows.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+        throw new ConflictException("Category still has transactions");
+      }
+      throw error;
     }
   }
 
@@ -91,7 +101,7 @@ export class CategoriesService {
   private toListItemDto(category: CategoryListRecord): CategoryListItemDto {
     return {
       ...this.toDto(category),
-      expenseCount: category._count.expenses,
+      transactionCount: category._count.transactions,
     };
   }
 }

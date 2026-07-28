@@ -23,17 +23,68 @@ const CATEGORIES = [
   { name: "Transport", color: "#3b82f6", icon: "🚌" },
   { name: "Dining", color: "#f97316", icon: "🍽️" },
   { name: "Utilities", color: "#a855f7", icon: "💡" },
+  { name: "Salary", color: "#eab308", icon: "💰" },
 ];
 
-const EXPENSES = [
-  { amount: "82.40", description: "Weekly shop", category: "Groceries", daysAgo: 1 },
-  { amount: "2.90", description: "Metro ticket", category: "Transport", daysAgo: 1 },
-  { amount: "45.00", description: "Dinner out", category: "Dining", daysAgo: 3 },
-  { amount: "120.15", description: "Electricity bill", category: "Utilities", daysAgo: 6 },
-  { amount: "31.75", description: "Corner store", category: "Groceries", daysAgo: 8 },
-  { amount: "18.00", description: "Taxi home", category: "Transport", daysAgo: 12 },
-  { amount: "9.60", description: "Coffee and pastry", category: "Dining", daysAgo: 14 },
-];
+const TRANSACTIONS = [
+  {
+    amount: "82.40",
+    type: "EXPENSE",
+    description: "Weekly shop",
+    category: "Groceries",
+    daysAgo: 1,
+  },
+  {
+    amount: "2.90",
+    type: "EXPENSE",
+    description: "Metro ticket",
+    category: "Transport",
+    daysAgo: 1,
+  },
+  { amount: "45.00", type: "EXPENSE", description: "Dinner out", category: "Dining", daysAgo: 3 },
+  {
+    amount: "120.15",
+    type: "EXPENSE",
+    description: "Electricity bill",
+    category: "Utilities",
+    daysAgo: 6,
+  },
+  {
+    amount: "31.75",
+    type: "EXPENSE",
+    description: "Corner store",
+    category: "Groceries",
+    daysAgo: 8,
+  },
+  {
+    amount: "18.00",
+    type: "EXPENSE",
+    description: "Taxi home",
+    category: "Transport",
+    daysAgo: 12,
+  },
+  {
+    amount: "9.60",
+    type: "EXPENSE",
+    description: "Coffee and pastry",
+    category: "Dining",
+    daysAgo: 14,
+  },
+  {
+    amount: "3200.00",
+    type: "INCOME",
+    description: "Monthly salary",
+    category: "Salary",
+    daysAgo: 2,
+  },
+  {
+    amount: "150.00",
+    type: "INCOME",
+    description: "Freelance invoice",
+    category: "Salary",
+    daysAgo: 10,
+  },
+] as const;
 
 /** Dates relative to today, so seeded data always looks recent. */
 function daysAgo(days: number): Date {
@@ -72,20 +123,30 @@ async function main(): Promise<void> {
     categories.map((category) => [category.name, category.id]),
   );
 
-  // Expenses have no natural key to upsert on, so re-running replaces them.
-  await prisma.expense.deleteMany({ where: { userId: user.id } });
+  // Transactions have no natural key to upsert on, so re-running replaces them.
+  await prisma.transaction.deleteMany({ where: { userId: user.id } });
 
-  await prisma.expense.createMany({
-    data: EXPENSES.map((expense) => ({
-      amount: expense.amount,
-      description: expense.description,
-      spentAt: daysAgo(expense.daysAgo),
-      userId: user.id,
-      categoryId: categoryIdByName.get(expense.category) ?? null,
-    })),
+  await prisma.transaction.createMany({
+    data: TRANSACTIONS.map((transaction) => {
+      const categoryId = categoryIdByName.get(transaction.category);
+      // categoryId is required on Transaction — a lookup miss here means the
+      // CATEGORIES list above is out of sync with this data, not a case to
+      // paper over with a fallback.
+      if (!categoryId) {
+        throw new Error(`Seed category "${transaction.category}" was not created`);
+      }
+      return {
+        amount: transaction.amount,
+        type: transaction.type,
+        description: transaction.description,
+        date: daysAgo(transaction.daysAgo),
+        userId: user.id,
+        categoryId,
+      };
+    }),
   });
 
-  console.log(`Seeded ${categories.length} categories and ${EXPENSES.length} expenses.`);
+  console.log(`Seeded ${categories.length} categories and ${TRANSACTIONS.length} transactions.`);
   console.log(`Log in with ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
 }
 

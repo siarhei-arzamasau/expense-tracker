@@ -25,8 +25,8 @@ describe("App (e2e)", () => {
     await app.close();
   });
 
-  it("rejects unauthenticated access to /api/expenses", () => {
-    return request(app.getHttpServer()).get("/api/expenses").expect(401);
+  it("rejects unauthenticated access to /api/transactions", () => {
+    return request(app.getHttpServer()).get("/api/transactions").expect(401);
   });
 
   it("rejects a registration with a too-short password", () => {

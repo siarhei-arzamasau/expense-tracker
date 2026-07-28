@@ -14,14 +14,14 @@ export default function PrivacyPage() {
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-muted-foreground">
           <p>
-            Expense Tracker stores the name, email and expense records you enter in a local
+            Expense Tracker stores the name, email and transaction records you enter in a local
             PostgreSQL database. Passwords are stored only as argon2 hashes. Nothing is shared with
             a third party, because there is no third party — this template runs entirely on the
             machine that hosts it.
           </p>
           <p>
-            Deleting your account removes your categories and expenses with it. This is not a real
-            privacy notice; an application that collects real users needs one written for it.
+            Deleting your account removes your categories and transactions with it. This is not a
+            real privacy notice; an application that collects real users needs one written for it.
           </p>
           <p>
             <Link href="/login" className="underline underline-offset-4 hover:text-foreground">

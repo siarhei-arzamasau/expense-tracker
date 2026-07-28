@@ -2,7 +2,7 @@
 
 Monorepo template: **Next.js 16** frontend, **NestJS 11** backend, **PostgreSQL 17** via **Prisma 7**, orchestrated with **Turborepo** and **pnpm workspaces**.
 
-Verified working: `pnpm typecheck`, `lint`, `build`, `test`, and `format:check` all pass, and the seeded `/expenses` slice round-trips through the API.
+Verified working: `pnpm typecheck`, `lint`, `build`, `test`, and `format:check` all pass, and the seeded `/transactions` slice round-trips through the API.
 
 ## Layout
 
@@ -33,19 +33,19 @@ docker compose up -d       # PostgreSQL 17 on :5432
 
 pnpm db:generate           # generate the Prisma client
 pnpm db:migrate            # create + apply the initial migration
-pnpm db:seed               # demo user, categories, expenses
+pnpm db:seed               # demo user, categories, transactions
 
 pnpm dev                   # frontend :3000, backend :3001
 ```
 
 Seeded login: `demo@example.com` / `password123`.
 
-| URL                            | What                              |
-| ------------------------------ | --------------------------------- |
-| http://localhost:3000          | Frontend                          |
-| http://localhost:3000/expenses | The vertical slice — expense list |
-| http://localhost:3001/api      | Backend REST API                  |
-| http://localhost:3001/api/docs | Swagger UI                        |
+| URL                                | What                                  |
+| ---------------------------------- | ------------------------------------- |
+| http://localhost:3000              | Frontend                              |
+| http://localhost:3000/transactions | The vertical slice — transaction list |
+| http://localhost:3001/api          | Backend REST API                      |
+| http://localhost:3001/api/docs     | Swagger UI                            |
 
 ## Scripts
 
@@ -99,7 +99,7 @@ decorator metadata Nest reads for dependency injection and makes the application
 
 Do not "fix" the generated files — they are overwritten by the next `pnpm db:generate`.
 
-**Money is `Decimal` in Postgres and `string` in JSON.** `Expense.amount` is `Decimal(12, 2)`; Prisma serializes it to a string over the wire. `ExpenseDto.amount` in `packages/shared` is therefore typed `string`. Parse it at the display boundary — treating it as a `number` gets you `NaN`.
+**Money is `Decimal` in Postgres and `string` in JSON.** `Transaction.amount` is `Decimal(12, 2)`; Prisma serializes it to a string over the wire. `TransactionDto.amount` in `packages/shared` is therefore typed `string`. Parse it at the display boundary — treating it as a `number` gets you `NaN`.
 
 **`docker` CLI not found?** Docker Desktop is installed but its CLI may not be on your `PATH`:
 
@@ -133,7 +133,7 @@ This is a learning template, not a hardened production app.
 - **The JWT is stored client-side as a bearer token, not an httpOnly cookie.** Easier to inspect and debug, but readable by any XSS on the page. Production wants httpOnly + `SameSite` cookies.
 - **No refresh-token rotation** — one access token, expiry from `JWT_EXPIRES_IN`.
 - **No rate limiting** on the auth endpoints (`@nestjs/throttler` is the usual answer), including `forgot-password`.
-- **Auth state lives in `localStorage`** and is read on mount, so the expenses page flashes before redirecting when logged out.
+- **Auth state lives in `localStorage`** and is read on mount, so the transactions page flashes before redirecting when logged out.
 - **Password reset links are logged, not emailed.** No nodemailer, no Mailpit, nothing added to `docker-compose.yml` — see "Password reset" above.
 - **Resetting a password does not revoke previously issued JWTs.** There is no token-revocation mechanism in this template, so a JWT signed before the reset stays valid until it expires on its own.
 - **Expired or otherwise dead password-reset tokens are never swept.** There is no scheduled cleanup — rows accumulate until the owning user is deleted (cascade) or the token is consumed.

@@ -182,7 +182,7 @@ export default function CategoriesPage() {
   const invalidateCategoryData = async (): Promise<void> => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["categories"] }),
-      queryClient.invalidateQueries({ queryKey: ["expenses"] }),
+      queryClient.invalidateQueries({ queryKey: ["transactions"] }),
     ]);
   };
 
@@ -243,11 +243,11 @@ export default function CategoriesPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Categories</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Organize expenses with a name, color, and emoji.
+            Organize transactions with a name, color, and emoji.
           </p>
         </div>
-        <Link href="/expenses" className="text-sm font-medium underline underline-offset-4">
-          View expenses
+        <Link href="/transactions" className="text-sm font-medium underline underline-offset-4">
+          View transactions
         </Link>
       </header>
 
@@ -311,7 +311,8 @@ export default function CategoriesPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{category.name}</p>
                   <p className="text-muted-foreground text-sm">
-                    {category.expenseCount} {category.expenseCount === 1 ? "expense" : "expenses"}
+                    {category.transactionCount}{" "}
+                    {category.transactionCount === 1 ? "transaction" : "transactions"}
                   </p>
                 </div>
                 <button
@@ -358,8 +359,9 @@ export default function CategoriesPage() {
               Delete {deleting.name}?
             </h2>
             <p className="text-muted-foreground text-sm">
-              Its {deleting.expenseCount} {deleting.expenseCount === 1 ? "expense" : "expenses"}
-              {" will remain, but become uncategorized."}
+              {deleting.transactionCount > 0
+                ? `This category has ${deleting.transactionCount} ${deleting.transactionCount === 1 ? "transaction" : "transactions"} and cannot be deleted until they are recategorized or removed.`
+                : "This category has no transactions and can be safely deleted."}
             </p>
             {deleteMutation.error && (
               <p className="text-destructive text-sm" role="alert">

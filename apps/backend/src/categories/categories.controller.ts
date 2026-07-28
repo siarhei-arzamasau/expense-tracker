@@ -55,7 +55,7 @@ export class CategoriesController {
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: "Delete a category; its expenses are kept and unlinked" })
+  @ApiOperation({ summary: "Delete a category; fails with 409 if it still has transactions" })
   remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param("id", ParseUUIDPipe) id: string,

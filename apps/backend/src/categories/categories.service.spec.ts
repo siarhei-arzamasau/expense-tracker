@@ -1,4 +1,5 @@
 import { ConflictException, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@expense-tracker/database";
 import { Test } from "@nestjs/testing";
 
 import { PrismaService } from "../prisma/prisma.service";
@@ -15,6 +16,14 @@ function createPrismaMock() {
       deleteMany: jest.fn(),
     },
   };
+}
+
+/** Prisma's shape for a foreign-key-violation error (P2003). */
+function fkViolation(): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError("Foreign key constraint violated", {
+    code: "P2003",
+    clientVersion: "test",
+  });
 }
 
 const USER_ID = "018f0000-0000-7000-8000-000000000001";
@@ -48,20 +57,22 @@ describe("CategoriesService", () => {
   });
 
   describe("findAll", () => {
-    it("maps Prisma's relation count to expenseCount", async () => {
-      prisma.category.findMany.mockResolvedValue([{ ...categoryRow(), _count: { expenses: 12 } }]);
+    it("maps Prisma's relation count to transactionCount", async () => {
+      prisma.category.findMany.mockResolvedValue([
+        { ...categoryRow(), _count: { transactions: 12 } },
+      ]);
 
       const [category] = await service.findAll(USER_ID);
 
       expect(category).toMatchObject({
         id: CATEGORY_ID,
         icon: "🛒",
-        expenseCount: 12,
+        transactionCount: 12,
       });
       expect(prisma.category.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId: USER_ID },
-          include: { _count: { select: { expenses: true } } },
+          include: { _count: { select: { transactions: true } } },
         }),
       );
     });
@@ -111,6 +122,20 @@ describe("CategoriesService", () => {
         data: { color: null },
       });
       expect(prisma.category.findUnique).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("remove", () => {
+    it("returns 409 rather than a raw 500 when the category still has transactions", async () => {
+      prisma.category.deleteMany.mockRejectedValue(fkViolation());
+
+      await expect(service.remove(USER_ID, CATEGORY_ID)).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it("throws 404 when the category is not the user's", async () => {
+      prisma.category.deleteMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.remove(USER_ID, CATEGORY_ID)).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

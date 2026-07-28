@@ -36,7 +36,7 @@ export function LoginForm() {
     mutationFn: login,
     onSuccess: (data: AuthResponse) => {
       authStorage.set(data.accessToken);
-      router.push("/expenses");
+      router.push("/transactions");
     },
   });
 

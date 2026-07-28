@@ -1,5 +1,5 @@
 /**
- * `amount` arrives from the API as a decimal string (see ExpenseDto). Parsing
+ * `amount` arrives from the API as a decimal string (see TransactionDto). Parsing
  * happens here, at the display boundary, and nowhere else.
  */
 export function formatAmount(amount: string, currency = "USD"): string {

@@ -20,9 +20,10 @@ export const API_ROUTES = {
     me: "users/me",
     password: "users/me/password",
   },
-  expenses: {
-    root: "expenses",
-    byId: (id: string) => `expenses/${id}`,
+  transactions: {
+    root: "transactions",
+    summary: "transactions/summary",
+    byId: (id: string) => `transactions/${id}`,
   },
   categories: {
     root: "categories",

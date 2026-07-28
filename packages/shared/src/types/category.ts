@@ -8,7 +8,7 @@ export interface CategoryDto {
 
 /** A category returned by GET /categories, including its usage count. */
 export interface CategoryListItemDto extends CategoryDto {
-  expenseCount: number;
+  transactionCount: number;
 }
 
 export interface CreateCategoryInput {

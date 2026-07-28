@@ -56,7 +56,7 @@ export function RegisterForm() {
       // Registration behaves exactly like login: POST /auth/register already
       // returns an AuthResponse with a token.
       authStorage.set(data.accessToken);
-      router.push("/expenses");
+      router.push("/transactions");
     },
   });
 

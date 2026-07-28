@@ -111,11 +111,29 @@ Or start Docker Desktop once and let it install the CLI tools.
 
 **`argon2` is a native module.** If pnpm can't fetch a prebuilt binary for your platform it falls back to `node-gyp`, which needs Xcode Command Line Tools (`xcode-select --install`). `@node-rs/argon2` is a drop-in replacement that ships pure prebuilt binaries if this becomes annoying.
 
+## Password reset
+
+`/login` has Log in and Register tabs; "Forgot password?" goes to `/forgot-password`. There is
+no email service in this template — `POST /api/auth/forgot-password` logs the reset URL through
+Nest's `Logger` instead of sending it, so after submitting the form you copy the link out of the
+backend's terminal output and open it yourself. It resolves to `/reset-password?token=…`, where a
+new password can be set. The response is `204` whether or not the email is registered, and the
+log only gets a URL for a known one — neither leaks which emails exist. The token is single-use
+(all of a user's outstanding tokens are cleared once one is redeemed) and expires after 60
+minutes.
+
+The link's origin comes from the `WEB_APP_URL` env var (default `http://localhost:3000`) — set it
+if the frontend runs on a different port or host, or the logged link will point at the wrong
+place.
+
 ## Deliberate simplifications
 
 This is a learning template, not a hardened production app.
 
 - **The JWT is stored client-side as a bearer token, not an httpOnly cookie.** Easier to inspect and debug, but readable by any XSS on the page. Production wants httpOnly + `SameSite` cookies.
 - **No refresh-token rotation** — one access token, expiry from `JWT_EXPIRES_IN`.
-- **No rate limiting** on the auth endpoints (`@nestjs/throttler` is the usual answer).
+- **No rate limiting** on the auth endpoints (`@nestjs/throttler` is the usual answer), including `forgot-password`.
 - **Auth state lives in `localStorage`** and is read on mount, so the expenses page flashes before redirecting when logged out.
+- **Password reset links are logged, not emailed.** No nodemailer, no Mailpit, nothing added to `docker-compose.yml` — see "Password reset" above.
+- **Resetting a password does not revoke previously issued JWTs.** There is no token-revocation mechanism in this template, so a JWT signed before the reset stays valid until it expires on its own.
+- **Expired or otherwise dead password-reset tokens are never swept.** There is no scheduled cleanup — rows accumulate until the owning user is deleted (cascade) or the token is consumed.

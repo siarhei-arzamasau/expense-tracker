@@ -6,7 +6,10 @@ import {
 } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import * as argon2 from "argon2";
+import { createHash } from "node:crypto";
 
+import { PrismaService } from "../prisma/prisma.service";
+import { PasswordResetTokenRepository } from "./password-reset-token.repository";
 import { UsersRepository } from "./users.repository";
 import { UsersService } from "./users.service";
 
@@ -18,6 +21,35 @@ function createRepositoryMock() {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+  };
+}
+
+function createTokenRepositoryMock() {
+  return {
+    create: jest.fn(),
+    findByTokenHash: jest.fn(),
+    deleteById: jest.fn(),
+    deleteAllForUser: jest.fn(),
+  };
+}
+
+/**
+ * Records the writes made inside the `$transaction` callback instead of
+ * actually running one — these tests assert on what was written, not on
+ * transactional atomicity, which no mock can prove anyway.
+ */
+function createPrismaMock() {
+  const userUpdate = jest.fn();
+  const tokenDeleteMany = jest.fn();
+  return {
+    userUpdate,
+    tokenDeleteMany,
+    $transaction: jest.fn(async (fn: (tx: unknown) => Promise<void>) => {
+      await fn({
+        user: { update: userUpdate },
+        passwordResetToken: { deleteMany: tokenDeleteMany },
+      });
+    }),
   };
 }
 
@@ -42,6 +74,8 @@ function userRow(overrides: Record<string, unknown> = {}) {
 describe("UsersService", () => {
   let service: UsersService;
   let repository: ReturnType<typeof createRepositoryMock>;
+  let tokenRepository: ReturnType<typeof createTokenRepositoryMock>;
+  let prisma: ReturnType<typeof createPrismaMock>;
 
   beforeAll(async () => {
     passwordHash = await argon2.hash(PASSWORD);
@@ -49,9 +83,16 @@ describe("UsersService", () => {
 
   beforeEach(async () => {
     repository = createRepositoryMock();
+    tokenRepository = createTokenRepositoryMock();
+    prisma = createPrismaMock();
 
     const moduleRef = await Test.createTestingModule({
-      providers: [UsersService, { provide: UsersRepository, useValue: repository }],
+      providers: [
+        UsersService,
+        { provide: UsersRepository, useValue: repository },
+        { provide: PasswordResetTokenRepository, useValue: tokenRepository },
+        { provide: PrismaService, useValue: prisma },
+      ],
     }).compile();
 
     service = moduleRef.get(UsersService);
@@ -239,6 +280,119 @@ describe("UsersService", () => {
       repository.delete.mockResolvedValue(false);
 
       await expect(service.remove(USER_ID, PASSWORD)).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe("createPasswordResetToken", () => {
+    it("returns null for an unknown email and writes nothing", async () => {
+      repository.findByEmail.mockResolvedValue(null);
+
+      await expect(service.createPasswordResetToken("nobody@example.com")).resolves.toBeNull();
+      expect(tokenRepository.deleteAllForUser).not.toHaveBeenCalled();
+      expect(tokenRepository.create).not.toHaveBeenCalled();
+    });
+
+    it("returns the raw token but stores only its SHA-256 hash", async () => {
+      repository.findByEmail.mockResolvedValue(userRow());
+      tokenRepository.create.mockResolvedValue({});
+
+      const rawToken = await service.createPasswordResetToken("demo@example.com");
+
+      expect(rawToken).toEqual(expect.any(String));
+      const [written] = tokenRepository.create.mock.calls[0] as [{ tokenHash: string }];
+      expect(written.tokenHash).not.toBe(rawToken);
+      expect(
+        createHash("sha256")
+          .update(rawToken as string)
+          .digest("hex"),
+      ).toBe(written.tokenHash);
+    });
+
+    it("deletes the user's previous tokens before creating the new one", async () => {
+      repository.findByEmail.mockResolvedValue(userRow());
+      tokenRepository.create.mockResolvedValue({});
+
+      await service.createPasswordResetToken("demo@example.com");
+
+      expect(tokenRepository.deleteAllForUser).toHaveBeenCalledWith(USER_ID);
+      const deleteOrder = tokenRepository.deleteAllForUser.mock.invocationCallOrder[0];
+      const createOrder = tokenRepository.create.mock.invocationCallOrder[0];
+      expect(deleteOrder).toBeLessThan(createOrder);
+    });
+
+    it("expires 60 minutes out — nothing would catch this silently drifting otherwise", async () => {
+      repository.findByEmail.mockResolvedValue(userRow());
+      tokenRepository.create.mockResolvedValue({});
+
+      const before = Date.now();
+      await service.createPasswordResetToken("demo@example.com");
+      const after = Date.now();
+
+      const [written] = tokenRepository.create.mock.calls[0] as [{ expiresAt: Date }];
+      const ttlMs = written.expiresAt.getTime() - before;
+      expect(ttlMs).toBeGreaterThanOrEqual(60 * 60 * 1000);
+      expect(written.expiresAt.getTime()).toBeLessThanOrEqual(after + 60 * 60 * 1000);
+    });
+  });
+
+  describe("resetPassword", () => {
+    function tokenRow(overrides: Record<string, unknown> = {}) {
+      return {
+        id: "token-1",
+        tokenHash: createHash("sha256").update("raw-token").digest("hex"),
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+        createdAt: new Date(),
+        userId: USER_ID,
+        ...overrides,
+      };
+    }
+
+    it("rejects an unknown token with the plan's exact message", async () => {
+      tokenRepository.findByTokenHash.mockResolvedValue(null);
+
+      await expect(service.resetPassword("raw-token", "new-password")).rejects.toMatchObject({
+        message: "Reset link is invalid or has expired",
+      });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("rejects and deletes an expired token, with the same message as an unknown one", async () => {
+      tokenRepository.findByTokenHash.mockResolvedValue(
+        tokenRow({ expiresAt: new Date(Date.now() - 1000) }),
+      );
+
+      await expect(service.resetPassword("raw-token", "new-password")).rejects.toMatchObject({
+        message: "Reset link is invalid or has expired",
+      });
+      expect(tokenRepository.deleteById).toHaveBeenCalledWith("token-1");
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("writes an argon2 hash of the new password and clears the user's tokens", async () => {
+      tokenRepository.findByTokenHash.mockResolvedValue(tokenRow());
+
+      await service.resetPassword("raw-token", "new-password");
+
+      const [{ data }] = prisma.userUpdate.mock.calls[0] as [{ data: { passwordHash: string } }];
+      expect(data.passwordHash).not.toBe("new-password");
+      await expect(argon2.verify(data.passwordHash, "new-password")).resolves.toBe(true);
+      expect(prisma.tokenDeleteMany).toHaveBeenCalledWith({ where: { userId: USER_ID } });
+    });
+
+    it("rejects reusing the same token after a successful reset (one-time use)", async () => {
+      const record = tokenRow();
+      // Models what Postgres would actually do: once the transaction's
+      // deleteMany has run, a lookup for the same token finds nothing.
+      tokenRepository.findByTokenHash.mockImplementation(() =>
+        Promise.resolve(prisma.tokenDeleteMany.mock.calls.length > 0 ? null : record),
+      );
+
+      await service.resetPassword("raw-token", "new-password");
+      expect(prisma.tokenDeleteMany).toHaveBeenCalledTimes(1);
+
+      await expect(service.resetPassword("raw-token", "new-password")).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
     });
   });
 });

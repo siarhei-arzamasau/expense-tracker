@@ -1,13 +1,18 @@
 import { ConflictException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { CommandBus, CqrsModule, QueryBus } from "@nestjs/cqrs";
 import { Test, type TestingModule } from "@nestjs/testing";
 import * as argon2 from "argon2";
 
+import { PrismaService } from "../prisma/prisma.service";
 import { ChangeUserPasswordCommand } from "./commands/change-user-password.command";
 import { DeleteUserCommand } from "./commands/delete-user.command";
 import { USERS_COMMAND_HANDLERS } from "./commands/handlers";
 import { RegisterUserCommand } from "./commands/register-user.command";
+import { RequestPasswordResetCommand } from "./commands/request-password-reset.command";
+import { ResetUserPasswordCommand } from "./commands/reset-user-password.command";
 import { UpdateUserProfileCommand } from "./commands/update-user-profile.command";
+import { PasswordResetTokenRepository } from "./password-reset-token.repository";
 import { GetUserByIdQuery } from "./queries/get-user-by-id.query";
 import { USERS_QUERY_HANDLERS } from "./queries/handlers";
 import { VerifyUserCredentialsQuery } from "./queries/verify-user-credentials.query";
@@ -53,6 +58,12 @@ describe("Users CQRS wiring", () => {
     update: jest.Mock;
     delete: jest.Mock;
   };
+  let tokenRepository: {
+    create: jest.Mock;
+    findByTokenHash: jest.Mock;
+    deleteById: jest.Mock;
+    deleteAllForUser: jest.Mock;
+  };
 
   beforeAll(async () => {
     passwordHash = await argon2.hash(PASSWORD);
@@ -66,12 +77,29 @@ describe("Users CQRS wiring", () => {
       update: jest.fn().mockResolvedValue(userRow()),
       delete: jest.fn().mockResolvedValue(true),
     };
+    tokenRepository = {
+      create: jest.fn().mockResolvedValue({}),
+      findByTokenHash: jest.fn().mockResolvedValue(null),
+      deleteById: jest.fn(),
+      deleteAllForUser: jest.fn(),
+    };
+    const prisma = {
+      $transaction: jest.fn(async (fn: (tx: unknown) => Promise<void>) => {
+        await fn({
+          user: { update: repository.update },
+          passwordResetToken: { deleteMany: jest.fn() },
+        });
+      }),
+    };
 
     moduleRef = await Test.createTestingModule({
       imports: [CqrsModule.forRoot()],
       providers: [
         UsersService,
         { provide: UsersRepository, useValue: repository },
+        { provide: PasswordResetTokenRepository, useValue: tokenRepository },
+        { provide: PrismaService, useValue: prisma },
+        { provide: ConfigService, useValue: { get: () => "http://localhost:3000" } },
         ...USERS_COMMAND_HANDLERS,
         ...USERS_QUERY_HANDLERS,
       ],
@@ -137,6 +165,29 @@ describe("Users CQRS wiring", () => {
     await expect(
       commandBus.execute(new RegisterUserCommand("demo@example.com", PASSWORD)),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("routes RequestPasswordResetCommand", async () => {
+    repository.findByEmail.mockResolvedValue(userRow());
+
+    await expect(
+      commandBus.execute(new RequestPasswordResetCommand("demo@example.com")),
+    ).resolves.toBeUndefined();
+    expect(tokenRepository.create).toHaveBeenCalled();
+  });
+
+  it("routes ResetUserPasswordCommand", async () => {
+    tokenRepository.findByTokenHash.mockResolvedValue({
+      id: "token-1",
+      tokenHash: "hash",
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      createdAt: new Date(),
+      userId: USER_ID,
+    });
+
+    await expect(
+      commandBus.execute(new ResetUserPasswordCommand("raw-token", "new-password")),
+    ).resolves.toBeUndefined();
   });
 
   it("never leaks the password hash across the bus", async () => {

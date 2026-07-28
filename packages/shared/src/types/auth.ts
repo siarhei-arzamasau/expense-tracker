@@ -13,3 +13,12 @@ export interface LoginInput {
 export interface RegisterInput extends LoginInput {
   name?: string;
 }
+
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ResetPasswordInput {
+  token: string;
+  password: string;
+}

@@ -87,4 +87,34 @@ describe("App (e2e)", () => {
       .set("Authorization", `Bearer ${accessToken}`)
       .expect(401);
   });
+
+  it("answers 204 for a forgot-password request on an unregistered email", () => {
+    // Same response as a known email — the point is that the caller cannot
+    // tell the two cases apart.
+    return request(app.getHttpServer())
+      .post("/api/auth/forgot-password")
+      .send({ email: "nobody-e2e@example.com" })
+      .expect(204);
+  });
+
+  it("answers 400 for a reset-password token that fails DTO validation", () => {
+    // Too short to be a real base64url(32 bytes) token — rejected by
+    // @Length(43, 43) before this ever reaches UsersService.
+    return request(app.getHttpServer())
+      .post("/api/auth/reset-password")
+      .send({ token: "not-a-real-token", password: "new-password123" })
+      .expect(400);
+  });
+
+  it("answers 400 with the plan's exact message for a well-formed but unknown reset token", () => {
+    // 43 characters, so it clears DTO validation and actually reaches
+    // UsersService.resetPassword's token lookup.
+    return request(app.getHttpServer())
+      .post("/api/auth/reset-password")
+      .send({ token: "a".repeat(43), password: "new-password123" })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ message: "Reset link is invalid or has expired" });
+      });
+  });
 });

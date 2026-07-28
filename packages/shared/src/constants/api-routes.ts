@@ -11,6 +11,8 @@ export const API_ROUTES = {
     register: "auth/register",
     login: "auth/login",
     me: "auth/me",
+    forgotPassword: "auth/forgot-password",
+    resetPassword: "auth/reset-password",
   },
   users: {
     // Account management for the caller's own user. Reading the profile stays

@@ -122,6 +122,10 @@ log only gets a URL for a known one — neither leaks which emails exist. The to
 (all of a user's outstanding tokens are cleared once one is redeemed) and expires after 60
 minutes.
 
+The link's origin comes from the `WEB_APP_URL` env var (default `http://localhost:3000`) — set it
+if the frontend runs on a different port or host, or the logged link will point at the wrong
+place.
+
 ## Deliberate simplifications
 
 This is a learning template, not a hardened production app.

@@ -22,10 +22,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 
-function ResetPasswordForm() {
+function ResetPasswordForm({ token }: { token: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = searchParams.get("token") ?? "";
 
   const form = useForm<ResetPasswordValues>({
     resolver: zodResolver(resetPasswordSchema),
@@ -87,6 +85,27 @@ function ResetPasswordForm() {
   );
 }
 
+function ResetPasswordGate() {
+  const token = useSearchParams().get("token") ?? "";
+
+  // A missing or truncated token would otherwise walk the user through the
+  // whole form only to fail on submit with class-validator's raw message
+  // ("token must be longer than or equal to 43 characters") — the plan
+  // commits to one message for every reset failure, so this catches it
+  // before the request ever goes out. Gating here, rather than with an
+  // early return inside ResetPasswordForm, keeps that component's Hook
+  // calls unconditional.
+  if (token.length !== 43) {
+    return (
+      <Alert variant="destructive" role="alert">
+        <AlertDescription>Reset link is invalid or has expired</AlertDescription>
+      </Alert>
+    );
+  }
+
+  return <ResetPasswordForm token={token} />;
+}
+
 export default function ResetPasswordPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
@@ -98,7 +117,7 @@ export default function ResetPasswordPage() {
           {/* useSearchParams needs a Suspense boundary in a client component
               under Next 16's static rendering, or `next build` fails. */}
           <Suspense fallback={null}>
-            <ResetPasswordForm />
+            <ResetPasswordGate />
           </Suspense>
         </CardContent>
       </Card>

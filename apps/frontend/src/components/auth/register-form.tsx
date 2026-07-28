@@ -31,7 +31,15 @@ export function RegisterForm() {
   });
 
   const mutation = useMutation({
-    mutationFn: registerUser,
+    // Two adjustments before this reaches the wire: `confirmPassword` is a
+    // client-only field RegisterInput doesn't have, and the backend's
+    // ValidationPipe runs with forbidNonWhitelisted — sending it as-is would
+    // 400. And a blank Name is "not provided," not "provided as empty" —
+    // RegisterInput.name is optional, and UsersService.create does
+    // `name: input.name ?? null`, so sending "" would store an empty string
+    // instead of the null the rest of the app treats as "no name."
+    mutationFn: ({ confirmPassword: _confirmPassword, ...values }: RegisterValues) =>
+      registerUser({ ...values, name: values.name || undefined }),
     onSuccess: (data: AuthResponse) => {
       // Registration behaves exactly like login: POST /auth/register already
       // returns an AuthResponse with a token.

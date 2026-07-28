@@ -3,7 +3,11 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 
 /**
- * The one place the `users` table meets Prisma.
+ * The one place the `users` table meets Prisma — except
+ * `UsersService.resetPassword`'s transaction, which writes `users` directly
+ * because Prisma's interactive `$transaction` needs both of its writes on
+ * the same `tx` client, and this repository's methods aren't shaped to
+ * accept one. See that method's docstring for the trade-off.
  *
  * Note this is deliberately inconsistent with CategoriesService and
  * ExpensesService, which inject PrismaService directly. The repository lives

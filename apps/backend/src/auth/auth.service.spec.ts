@@ -96,18 +96,20 @@ describe("AuthService", () => {
   });
 
   describe("requestPasswordReset", () => {
-    it("resolves for a known email without throwing", async () => {
+    // With the bus mocked, this only proves AuthService dispatches and
+    // doesn't throw — it can't prove there's no email enumeration, since a
+    // mocked commandBus.execute resolves identically regardless of what's
+    // passed to it. That property is proven where it actually lives:
+    // request-password-reset.handler.spec.ts drives a known and an unknown
+    // email through the real handler and asserts a URL is logged for one
+    // and not the other.
+    it("dispatches the command and resolves without throwing", async () => {
       commandBus.execute.mockResolvedValue(undefined);
 
       await expect(service.requestPasswordReset({ email: USER.email })).resolves.toBeUndefined();
-    });
-
-    it("resolves the same way for an unknown email — proof there is no email enumeration", async () => {
-      commandBus.execute.mockResolvedValue(undefined);
-
-      await expect(
-        service.requestPasswordReset({ email: "nobody@example.com" }),
-      ).resolves.toBeUndefined();
+      expect(commandBus.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ email: USER.email }),
+      );
     });
   });
 

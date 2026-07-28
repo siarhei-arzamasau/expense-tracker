@@ -319,6 +319,20 @@ describe("UsersService", () => {
       const createOrder = tokenRepository.create.mock.invocationCallOrder[0];
       expect(deleteOrder).toBeLessThan(createOrder);
     });
+
+    it("expires 60 minutes out — nothing would catch this silently drifting otherwise", async () => {
+      repository.findByEmail.mockResolvedValue(userRow());
+      tokenRepository.create.mockResolvedValue({});
+
+      const before = Date.now();
+      await service.createPasswordResetToken("demo@example.com");
+      const after = Date.now();
+
+      const [written] = tokenRepository.create.mock.calls[0] as [{ expiresAt: Date }];
+      const ttlMs = written.expiresAt.getTime() - before;
+      expect(ttlMs).toBeGreaterThanOrEqual(60 * 60 * 1000);
+      expect(written.expiresAt.getTime()).toBeLessThanOrEqual(after + 60 * 60 * 1000);
+    });
   });
 
   describe("resetPassword", () => {
@@ -333,23 +347,23 @@ describe("UsersService", () => {
       };
     }
 
-    it("rejects an unknown token", async () => {
+    it("rejects an unknown token with the plan's exact message", async () => {
       tokenRepository.findByTokenHash.mockResolvedValue(null);
 
-      await expect(service.resetPassword("raw-token", "new-password")).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      await expect(service.resetPassword("raw-token", "new-password")).rejects.toMatchObject({
+        message: "Reset link is invalid or has expired",
+      });
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
-    it("rejects and deletes an expired token", async () => {
+    it("rejects and deletes an expired token, with the same message as an unknown one", async () => {
       tokenRepository.findByTokenHash.mockResolvedValue(
         tokenRow({ expiresAt: new Date(Date.now() - 1000) }),
       );
 
-      await expect(service.resetPassword("raw-token", "new-password")).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      await expect(service.resetPassword("raw-token", "new-password")).rejects.toMatchObject({
+        message: "Reset link is invalid or has expired",
+      });
       expect(tokenRepository.deleteById).toHaveBeenCalledWith("token-1");
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
@@ -365,9 +379,16 @@ describe("UsersService", () => {
       expect(prisma.tokenDeleteMany).toHaveBeenCalledWith({ where: { userId: USER_ID } });
     });
 
-    it("rejects a second use of the same token (one-time use)", async () => {
-      // Simulates the token already having been consumed and deleted.
-      tokenRepository.findByTokenHash.mockResolvedValue(null);
+    it("rejects reusing the same token after a successful reset (one-time use)", async () => {
+      const record = tokenRow();
+      // Models what Postgres would actually do: once the transaction's
+      // deleteMany has run, a lookup for the same token finds nothing.
+      tokenRepository.findByTokenHash.mockImplementation(() =>
+        Promise.resolve(prisma.tokenDeleteMany.mock.calls.length > 0 ? null : record),
+      );
+
+      await service.resetPassword("raw-token", "new-password");
+      expect(prisma.tokenDeleteMany).toHaveBeenCalledTimes(1);
 
       await expect(service.resetPassword("raw-token", "new-password")).rejects.toBeInstanceOf(
         BadRequestException,

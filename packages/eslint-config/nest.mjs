@@ -11,12 +11,12 @@ export const nestConfig = [
   ...baseConfig,
   {
     rules: {
-      // MUST stay off for NestJS. `emitDecoratorMetadata` reads constructor
-      // parameter types at runtime to resolve dependencies. Rewriting
-      // `import { PrismaService }` into `import type { PrismaService }` erases
-      // that metadata, and the app dies at boot with
+      // Belt and braces: base.mjs does not enable this, but if anyone ever
+      // turns it on globally it must stay off HERE. emitDecoratorMetadata reads
+      // constructor parameter types at runtime to resolve dependencies, and the
+      // autofix rewrites `import { PrismaService }` into `import type`, erasing
+      // that metadata. The app then dies at boot with
       // "Nest can't resolve dependencies of the XService".
-      // The autofixer will happily make this change if the rule is on.
       "@typescript-eslint/consistent-type-imports": "off",
 
       "@typescript-eslint/no-extraneous-class": "off",

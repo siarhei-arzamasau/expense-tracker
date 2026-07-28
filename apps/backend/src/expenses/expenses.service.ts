@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import type { CategoryDto, ExpenseDto } from "@expense-tracker/shared";
+import type { ExpenseDto } from "@expense-tracker/shared";
 
 import { PrismaService } from "../prisma/prisma.service";
 import type { CreateExpenseDto } from "./dto/create-expense.dto";
@@ -14,7 +14,8 @@ interface CategoryRecord {
 
 interface ExpenseRecord {
   id: string;
-  amount: { toString: () => string };
+  /** Prisma's Decimal. toFixed comes from decimal.js. */
+  amount: { toFixed: (decimalPlaces: number) => string };
   description: string | null;
   spentAt: Date;
   categoryId: string | null;
@@ -111,7 +112,10 @@ export class ExpensesService {
     return {
       id: expense.id,
       // Decimal -> string on purpose. See ExpenseDto in @expense-tracker/shared.
-      amount: expense.amount.toString(),
+      // toFixed(2), not toString(): Decimal.toString() drops trailing zeros, so
+      // 82.40 would go out as "82.4" and the API would be inconsistent about
+      // how many decimal places a money value has.
+      amount: expense.amount.toFixed(2),
       description: expense.description,
       spentAt: expense.spentAt.toISOString(),
       categoryId: expense.categoryId,

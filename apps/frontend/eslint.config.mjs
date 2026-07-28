@@ -6,10 +6,12 @@ import next from "eslint-config-next";
 const nextConfig = Array.isArray(next) ? next : [next];
 
 /** @type {import("eslint").Linter.Config[]} */
-export default [
+const config = [
   ...baseConfig,
   ...nextConfig,
   {
     ignores: [".next/**", "next-env.d.ts"],
   },
 ];
+
+export default config;

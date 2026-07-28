@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Expense tracker: Turborepo + pnpm workspaces, Next.js 16 frontend, NestJS 11 backend, PostgreSQL 17 via Prisma 7.
 
-This started as a hand-written template scaffolded **without installing dependencies**. If `node_modules/` is absent, nothing has been validated by a compiler yet — run the bootstrap below before trusting any "it's broken" signal. A wall of unresolved-import errors before `pnpm install` + `pnpm db:generate` is expected, not a bug.
+Installed and verified: `typecheck`, `lint`, `build`, `test`, and `format:check` all pass. On a **fresh clone** nothing typechecks until `pnpm install` + `pnpm db:generate` have run, because the generated Prisma client is gitignored — a wall of unresolved imports at that point is expected, not a bug.
 
 ```bash
 nvm use && cp .env.example .env      # Node 24.18.0
@@ -19,12 +19,12 @@ pnpm db:generate && pnpm db:migrate && pnpm db:seed
 
 Run from the repo root; Turborepo fans out in dependency order.
 
-| Command | Notes |
-| --- | --- |
-| `pnpm dev` | frontend :3000, backend :3001, Swagger at :3001/api/docs |
-| `pnpm build` / `pnpm typecheck` / `pnpm lint` | whole workspace |
-| `pnpm test` | backend unit specs only |
-| `pnpm db:migrate` / `db:generate` / `db:seed` / `db:studio` | proxied to `packages/database` |
+| Command                                                     | Notes                                                    |
+| ----------------------------------------------------------- | -------------------------------------------------------- |
+| `pnpm dev`                                                  | frontend :3000, backend :3001, Swagger at :3001/api/docs |
+| `pnpm build` / `pnpm typecheck` / `pnpm lint`               | whole workspace                                          |
+| `pnpm test`                                                 | backend unit specs only                                  |
+| `pnpm db:migrate` / `db:generate` / `db:seed` / `db:studio` | proxied to `packages/database`                           |
 
 Scoping to one package uses `pnpm --filter <name> <script>`, e.g. `pnpm --filter @expense-tracker/backend build`.
 
@@ -52,13 +52,15 @@ Seeded login: `demo@example.com` / `password123`.
 
 **TypeScript is pinned to `^5.9.3` while `latest` is 7.x.** `typescript-eslint` declares `typescript: ">=4.8.4 <6.1.0"` and `ts-jest` declares `>=4.3 <7`. TS 6 and 7 are excluded by our own lint and test toolchain. Do not bump it until both ship support. Same reasoning for `@types/node ^24.13.3` rather than 26.x — it tracks the Node 24 runtime.
 
-**`consistent-type-imports` is OFF for the backend** (`packages/eslint-config/nest.mjs`). Its autofixer rewrites `import { PrismaService }` into `import type`, which erases the `emitDecoratorMetadata` that Nest's DI reads at runtime. The app then dies at boot with "Nest can't resolve dependencies." Never enable it there, and use value imports for anything appearing in a constructor signature or `@Body()` parameter.
+**ESLint is pinned to `^9.39.5` while `latest` is 10.x.** `typescript-eslint` does support ESLint 10, but `eslint-config-next`'s transitive plugins (`eslint-plugin-react`, `-import`, `-jsx-a11y`) cap at `^9` and call `scopeManager.addGlobals`, removed in ESLint 10. Frontend lint dies with `TypeError: scopeManager.addGlobals is not a function`. When evaluating an ESLint bump, the Next plugins are the binding constraint, not `typescript-eslint`.
 
-**Prisma 7 differs from every v6 tutorial.** The `datasource` block has no `url` — connection URLs live in `packages/database/prisma.config.ts`. Prisma no longer auto-loads `.env`, and a bare `import "dotenv/config"` is insufficient because the CLI's cwd is `packages/database` while `.env` is at the repo root; `prisma.config.ts` resolves it explicitly. The generator sets `output`, `moduleFormat`, and `importFileExtension` explicitly because the latter two otherwise default to "inferred from environment."
+**`@typescript-eslint/consistent-type-imports` is not enabled anywhere, and turning it on requires solving two separate problems.** It needs type-aware linting, which `eslint-config-next`'s parser does not provide (it doesn't forward `parserOptions.project`), so it throws on every frontend file. Independently, its autofix rewrites `import { PrismaService }` into `import type`, erasing the `emitDecoratorMetadata` Nest's DI reads at runtime — the backend then dies at boot with "Nest can't resolve dependencies." Use value imports for anything in a constructor signature or `@Body()` parameter regardless.
+
+**Prisma 7 differs from every v6 tutorial in three ways.** The `datasource` block has no `url` — connection URLs live in `packages/database/prisma.config.ts`. Prisma no longer auto-loads `.env`, and a bare `import "dotenv/config"` is insufficient because the CLI's cwd is `packages/database` while `.env` is at the repo root; `prisma.config.ts` resolves it explicitly. And **`new PrismaClient()` with no options throws** — v7 requires a driver adapter. Go through `createPrismaClient()` / `createPgAdapter()` in `packages/database/src/client.ts`, which is the single place `@prisma/adapter-pg` is wired; `PrismaService` passes the adapter via `super()`. The generator sets `output`, `moduleFormat`, and `importFileExtension` explicitly because the latter two otherwise default to "inferred from environment."
 
 **`prisma generate` is owned by `turbo.json`, not by the build script.** `packages/database`'s `build` is `tsc` alone. Putting `prisma generate &&` back into it would run it twice and let Turbo cache a `dist` built from generated sources it does not track, then restore that cache into a tree where the gitignored `src/generated/` is absent.
 
-**`pnpm-workspace.yaml` has an `onlyBuiltDependencies` allowlist.** pnpm 10+ blocks dependency build scripts by default, so without it `pnpm install` *succeeds* while leaving Prisma ungenerated and argon2 without a native binary. Add to this list when introducing a dependency that needs a postinstall step.
+**`pnpm-workspace.yaml` uses `allowBuilds` (a map), NOT pnpm 10's `onlyBuiltDependencies` (a list).** pnpm 11 renamed it and silently ignores the old key, so an install that should have been gated instead _reports success_ while leaving Prisma without engines and argon2 without a native binary. The tell is `ERR_PNPM_IGNORED_BUILDS` in the install output. Add an entry here when introducing a dependency with a postinstall step.
 
 **`ConfigModule`'s `envFilePath` is anchored to `__dirname`, not a relative string.** cwd differs between `turbo dev` (cwd = `apps/backend`) and `pnpm --filter @expense-tracker/backend start:prod` from the root.
 

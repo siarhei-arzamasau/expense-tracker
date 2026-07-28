@@ -31,8 +31,7 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["^build", "db:generate"],
-      "outputs": ["coverage/**"]
+      "dependsOn": ["^build", "db:generate"]
     },
     "clean": {
       "cache": false

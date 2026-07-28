@@ -2,7 +2,7 @@
 
 Monorepo template: **Next.js 16** frontend, **NestJS 11** backend, **PostgreSQL 17** via **Prisma 7**, orchestrated with **Turborepo** and **pnpm workspaces**.
 
-> **This template was scaffolded without running an install.** Nothing here has been validated by a compiler or a resolver yet. Follow the setup steps below in order — the first `pnpm install` is the first time any of these configs get checked.
+Verified working: `pnpm typecheck`, `lint`, `build`, `test`, and `format:check` all pass, and the seeded `/expenses` slice round-trips through the API.
 
 ## Layout
 
@@ -40,36 +40,42 @@ pnpm dev                   # frontend :3000, backend :3001
 
 Seeded login: `demo@example.com` / `password123`.
 
-| URL | What |
-| --- | --- |
-| http://localhost:3000 | Frontend |
+| URL                            | What                              |
+| ------------------------------ | --------------------------------- |
+| http://localhost:3000          | Frontend                          |
 | http://localhost:3000/expenses | The vertical slice — expense list |
-| http://localhost:3001/api | Backend REST API |
-| http://localhost:3001/api/docs | Swagger UI |
+| http://localhost:3001/api      | Backend REST API                  |
+| http://localhost:3001/api/docs | Swagger UI                        |
 
 ## Scripts
 
 Run from the repo root; Turborepo fans them out in dependency order.
 
-| Command | Does |
-| --- | --- |
-| `pnpm dev` | All apps in watch mode |
-| `pnpm build` | Build everything |
-| `pnpm typecheck` | Typecheck every package |
-| `pnpm lint` / `pnpm format` | ESLint / Prettier |
-| `pnpm test` | Backend Jest suites |
-| `pnpm db:migrate` | New migration from schema changes |
-| `pnpm db:studio` | Prisma Studio |
+| Command                     | Does                              |
+| --------------------------- | --------------------------------- |
+| `pnpm dev`                  | All apps in watch mode            |
+| `pnpm build`                | Build everything                  |
+| `pnpm typecheck`            | Typecheck every package           |
+| `pnpm lint` / `pnpm format` | ESLint / Prettier                 |
+| `pnpm test`                 | Backend Jest suites               |
+| `pnpm db:migrate`           | New migration from schema changes |
+| `pnpm db:studio`            | Prisma Studio                     |
 
 ## Things that will confuse you if nobody says them
 
-**The repo does not typecheck until `pnpm install` *and* `pnpm db:generate` have both run.** Every cross-package import and the entire generated Prisma client are absent before that. A wall of unresolved-import errors at that point is expected, not a broken scaffold.
+**On a fresh clone the repo does not typecheck until `pnpm install` _and_ `pnpm db:generate` have both run.** Every cross-package import and the entire generated Prisma client are absent before that. A wall of unresolved-import errors at that point is expected, not a broken scaffold.
 
 **TypeScript is pinned to `^5.9.3`, not `latest`.** `latest` is 7.x (the native compiler), but `typescript-eslint` declares `typescript: ">=4.8.4 <6.1.0"` and `ts-jest` declares `>=4.3 <7`. TS 6 and 7 are hard-excluded by our own lint and test toolchain — this is a peer-dependency constraint, not taste. Revisit when those two ship support.
 
-**Prisma 7 changed two things that break v6-shaped configs.** The connection URL is no longer in `schema.prisma` — it lives in `packages/database/prisma.config.ts`. And Prisma no longer auto-loads `.env`, which is why that file starts with `import "dotenv/config"`. Deleting that line makes every `prisma` command fail to find `DATABASE_URL`.
+**ESLint is pinned to `^9.39.5`, not `latest` (10.x), and this was learned the hard way.** `typescript-eslint` supports ESLint 10 — but `eslint-config-next`'s transitive plugins (`eslint-plugin-react`, `-import`, `-jsx-a11y`) cap at `^9` and call `scopeManager.addGlobals`, which ESLint 10 removed. Linting the frontend on ESLint 10 dies with `TypeError: scopeManager.addGlobals is not a function`. Checking `typescript-eslint`'s peer range alone is not sufficient; the Next plugins are the binding constraint.
 
-**`pnpm-workspace.yaml` has an `onlyBuiltDependencies` allowlist.** pnpm 10+ blocks dependency build scripts by default. Without the allowlist, `pnpm install` *succeeds* but leaves Prisma ungenerated, argon2 without a binary, and Tailwind without its oxide engine.
+**Prisma 7 changed three things that break v6-shaped configs.**
+
+1. The connection URL is no longer in `schema.prisma` — it lives in `packages/database/prisma.config.ts`.
+2. Prisma no longer auto-loads `.env`, which is why that file loads dotenv explicitly. It resolves the **repo root** `.env`, not `packages/database/.env`, because the CLI's cwd is the package directory.
+3. **`new PrismaClient()` with no options now throws** — v7 requires a driver adapter. `packages/database/src/client.ts` wires `@prisma/adapter-pg` in one place; `createPrismaClient()` and `createPgAdapter()` are the only supported ways to get a client. `PrismaService` passes the adapter through `super()`.
+
+**`pnpm-workspace.yaml` uses `allowBuilds`, not `onlyBuiltDependencies`.** pnpm 11 renamed the key and changed it from a list to a map; **the pnpm 10 key is silently ignored**. Symptom is `ERR_PNPM_IGNORED_BUILDS` on install, after which the install _reports success_ while leaving Prisma without its engines and argon2 without a native binary. `@scarf/scarf` is deliberately set to `false` — it is analytics telemetry and nothing depends on it.
 
 **If `pnpm build` fails inside `packages/database/src/generated/`, that is not your code.** The Prisma 7 `prisma-client` generator emits **TypeScript source**, and `packages/database` compiles it with our `strict` config. `skipLibCheck` will not help — it only applies to `.d.ts` files, and these are `.ts`. If the generated client trips a strict rule, relax it for that directory only, in `packages/database/tsconfig.json`:
 

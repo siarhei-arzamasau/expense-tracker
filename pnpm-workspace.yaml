@@ -2,16 +2,35 @@ packages:
   - "apps/*"
   - "packages/*"
 
-# pnpm 10+ blocks dependency postinstall/build scripts by default. Without this
-# allowlist the install SUCCEEDS but leaves the project broken at runtime:
-# Prisma never generates its client, argon2 has no native binary, and Tailwind's
-# oxide engine is missing. Add a package here only after checking why it needs a
-# build step.
-onlyBuiltDependencies:
-  - "@prisma/client"
-  - "@tailwindcss/oxide"
-  - argon2
-  - esbuild
-  - prisma
-  - sharp
-  - unrs-resolver
+# pnpm 11 blocks dependency build scripts by default. Without this allowlist the
+# install SUCCEEDS but leaves the project broken at runtime: Prisma never fetches
+# its engines, argon2 has no native binary, and esbuild/sharp/unrs-resolver are
+# missing their platform binaries.
+#
+# NOTE: pnpm 10 spelled this `onlyBuiltDependencies` (a plain list). pnpm 11
+# renamed it to `allowBuilds` (a map). The old key is silently ignored — the
+# symptom is ERR_PNPM_IGNORED_BUILDS on install.
+allowBuilds:
+  "@prisma/engines": true
+  argon2: true
+  esbuild: true
+  prisma: true
+  sharp: true
+  unrs-resolver: true
+  # Analytics/telemetry only, nothing depends on it functionally.
+  "@scarf/scarf": false
+
+# Written by pnpm itself: these versions were newer than the configured
+# minimumReleaseAge when first installed.
+minimumReleaseAgeExclude:
+  - "@prisma/client-runtime-utils@7.9.1"
+  - "@prisma/client@7.9.1"
+  - "@prisma/config@7.9.1"
+  - "@prisma/debug@7.9.1"
+  - "@prisma/dev@0.24.17"
+  - "@prisma/engines@7.9.1"
+  - "@prisma/fetch-engine@7.9.1"
+  - "@prisma/get-platform@7.9.1"
+  - prisma@7.9.1
+  - "@prisma/adapter-pg@7.9.1"
+  - "@prisma/driver-adapter-utils@7.9.1"

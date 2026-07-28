@@ -11,7 +11,9 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch --preserveWatchOutput",
@@ -22,7 +24,7 @@
   "devDependencies": {
     "@expense-tracker/eslint-config": "workspace:*",
     "@expense-tracker/typescript-config": "workspace:*",
-    "eslint": "^10.8.0",
+    "eslint": "^9.39.5",
     "typescript": "^5.9.3"
   }
 }

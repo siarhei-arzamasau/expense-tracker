@@ -28,7 +28,7 @@
     "@expense-tracker/eslint-config": "workspace:*",
     "@expense-tracker/typescript-config": "workspace:*",
     "@types/node": "^24.13.3",
-    "eslint": "^10.8.0",
+    "eslint": "^9.39.5",
     "husky": "^9.1.7",
     "lint-staged": "^17.2.0",
     "prettier": "^3.9.6",

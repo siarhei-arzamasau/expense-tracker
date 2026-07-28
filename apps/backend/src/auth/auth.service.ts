@@ -1,5 +1,4 @@
 import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import type { AuthResponse, UserDto } from "@expense-tracker/shared";
 import * as argon2 from "argon2";
@@ -14,7 +13,6 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
-    private readonly config: ConfigService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
@@ -63,9 +61,9 @@ export class AuthService {
     const payload: JwtPayload = { sub: user.id, email: user.email };
 
     return {
-      accessToken: this.jwt.sign(payload, {
-        expiresIn: this.config.get<string>("JWT_EXPIRES_IN", "7d"),
-      }),
+      // expiresIn comes from JwtModule.registerAsync in auth.module.ts — one
+      // source of truth rather than repeating the config lookup per call site.
+      accessToken: this.jwt.sign(payload),
       user: this.toUserDto(user),
     };
   }

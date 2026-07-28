@@ -29,10 +29,15 @@ export const baseConfig = [
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      "@typescript-eslint/consistent-type-imports": [
-        "warn",
-        { prefer: "type-imports", fixStyle: "inline-type-imports" },
-      ],
+      // NOTE: `@typescript-eslint/consistent-type-imports` is deliberately NOT
+      // enabled here, for two independent reasons:
+      //   1. It needs type-aware linting, and eslint-config-next substitutes
+      //      its own parser without forwarding `parserOptions.project`, so the
+      //      rule throws on every frontend file.
+      //   2. Its autofix breaks NestJS. Rewriting `import { PrismaService }`
+      //      into `import type` erases the emitDecoratorMetadata that DI reads
+      //      at runtime, and the backend dies at boot.
+      // Turning it on requires solving both, not just the one you hit first.
       "no-console": ["warn", { allow: ["warn", "error"] }],
     },
   },

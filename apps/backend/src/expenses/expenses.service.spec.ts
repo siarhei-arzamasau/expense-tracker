@@ -22,10 +22,18 @@ function createPrismaMock() {
 
 const USER_ID = "018f0000-0000-7000-8000-000000000001";
 
+/**
+ * Stand-in for Prisma's Decimal. The service only calls toFixed, and using a
+ * plain string here would let a regression to `.toString()` pass unnoticed.
+ */
+function decimal(value: string) {
+  return { toFixed: (decimalPlaces: number) => Number(value).toFixed(decimalPlaces) };
+}
+
 function expenseRow(overrides: Record<string, unknown> = {}) {
   return {
     id: "018f0000-0000-7000-8000-0000000000aa",
-    amount: "42.50",
+    amount: decimal("42.50"),
     description: "Weekly shop",
     spentAt: new Date("2026-07-01T12:00:00.000Z"),
     categoryId: null,
@@ -60,6 +68,15 @@ describe("ExpensesService", () => {
       expect(typeof expense?.amount).toBe("string");
     });
 
+    it("keeps trailing zeros — 82.40 must not serialize as '82.4'", async () => {
+      // Decimal.toString() drops the trailing zero; toFixed(2) does not.
+      prisma.expense.findMany.mockResolvedValue([expenseRow({ amount: decimal("82.40") })]);
+
+      const [expense] = await service.findAll(USER_ID);
+
+      expect(expense?.amount).toBe("82.40");
+    });
+
     it("scopes the query to the requesting user", async () => {
       prisma.expense.findMany.mockResolvedValue([]);
 
@@ -73,7 +90,7 @@ describe("ExpensesService", () => {
 
   describe("create", () => {
     it("passes an exact 2dp decimal string to Prisma, not a float", async () => {
-      prisma.expense.create.mockResolvedValue(expenseRow({ amount: "0.30" }));
+      prisma.expense.create.mockResolvedValue(expenseRow({ amount: decimal("0.30") }));
 
       await service.create(USER_ID, { amount: 0.3, spentAt: "2026-07-01T12:00:00.000Z" });
 

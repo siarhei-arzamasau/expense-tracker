@@ -6,3 +6,4 @@
  * expected; run `pnpm db:generate` and they go away.
  */
 export * from "./generated/client";
+export { createPgAdapter, createPrismaClient } from "./client";

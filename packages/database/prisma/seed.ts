@@ -4,16 +4,16 @@ import { resolve } from "node:path";
 import * as argon2 from "argon2";
 import { config as loadEnv } from "dotenv";
 
-import { PrismaClient } from "../src/generated/client";
+import { createPrismaClient } from "../src/client";
 
-// Must run before `new PrismaClient()` below, which reads DATABASE_URL from the
+// Must run before createPrismaClient() below, which reads DATABASE_URL from the
 // environment. Import statements hoist, but this top-level code still executes
 // before the `const prisma = ...` that follows it.
 for (const candidate of ["../../.env", ".env"]) {
   loadEnv({ path: resolve(process.cwd(), candidate), override: false, quiet: true });
 }
 
-const prisma = new PrismaClient();
+const prisma = createPrismaClient();
 
 const DEMO_EMAIL = "demo@example.com";
 const DEMO_PASSWORD = "password123";

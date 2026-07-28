@@ -53,4 +53,15 @@ describe("Transaction DTO validation", () => {
       expect.arrayContaining(["page", "search"]),
     );
   });
+
+  // The cap exists so one request cannot buy an arbitrarily deep SQL OFFSET.
+  it("accepts the last allowed page and rejects the one past it", async () => {
+    const allowed = Object.assign(new FindTransactionsQueryDto(), { page: 10_000 });
+    const tooDeep = Object.assign(new FindTransactionsQueryDto(), { page: 10_001 });
+
+    await expect(validate(allowed)).resolves.toHaveLength(0);
+    await expect(validate(tooDeep)).resolves.toEqual([
+      expect.objectContaining({ property: "page" }),
+    ]);
+  });
 });

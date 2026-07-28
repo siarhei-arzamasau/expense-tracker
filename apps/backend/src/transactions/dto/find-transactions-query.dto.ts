@@ -11,19 +11,30 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
 } from "class-validator";
+
+/**
+ * An upper bound on `page` is a cost control, not a product rule. `skip` is a
+ * SQL `OFFSET`, which Postgres answers by walking and discarding every row
+ * before it — so an unbounded `?page=` lets one cheap request buy an
+ * arbitrarily expensive scan on an API that has no rate limiting. At ten rows
+ * a page this still reaches 100k transactions.
+ */
+const MAX_PAGE = 10_000;
 
 /**
  * `main.ts` sets `forbidNonWhitelisted: true`, so query filters must arrive
  * through a decorated class or an unknown param 400s.
  */
 export class FindTransactionsQueryDto implements TransactionQuery {
-  @ApiPropertyOptional({ default: 1, minimum: 1, type: Number })
+  @ApiPropertyOptional({ default: 1, minimum: 1, maximum: MAX_PAGE, type: Number })
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(MAX_PAGE)
   page?: number;
 
   @ApiPropertyOptional({ example: "groceries", maxLength: 255 })

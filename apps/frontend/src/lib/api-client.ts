@@ -1,6 +1,14 @@
+import { API_ROUTES } from "@expense-tracker/shared";
+
 import { authStorage } from "./auth-storage";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
+const PUBLIC_AUTH_ROUTES = new Set<string>([
+  API_ROUTES.auth.register,
+  API_ROUTES.auth.login,
+  API_ROUTES.auth.forgotPassword,
+  API_ROUTES.auth.resetPassword,
+]);
 
 export class ApiError extends Error {
   constructor(
@@ -14,6 +22,10 @@ export class ApiError extends Error {
   get isUnauthorized(): boolean {
     return this.status === 401;
   }
+}
+
+export function retryApiQuery(failureCount: number, error: Error): boolean {
+  return failureCount < 1 && !(error instanceof ApiError && error.isUnauthorized);
 }
 
 /** Nest's exception filter returns `{ statusCode, message, error }`. */
@@ -44,7 +56,16 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new ApiError(response.status, await extractErrorMessage(response));
+    const error = new ApiError(response.status, await extractErrorMessage(response));
+    if (
+      error.isUnauthorized &&
+      token &&
+      authStorage.get() === token &&
+      !PUBLIC_AUTH_ROUTES.has(path)
+    ) {
+      authStorage.expire();
+    }
+    throw error;
   }
 
   // 204 No Content has no body to parse.
@@ -56,10 +77,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const apiClient = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, init?: RequestInit) => request<T>(path, init),
   post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
-  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  delete: <T>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: "DELETE",
+      ...(body !== undefined && { body: JSON.stringify(body) }),
+    }),
 };

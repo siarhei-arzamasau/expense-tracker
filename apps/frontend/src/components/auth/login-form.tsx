@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { AuthResponse } from "@expense-tracker/shared";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -26,6 +26,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 
 export function LoginForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -35,8 +36,10 @@ export function LoginForm() {
   const mutation = useMutation({
     mutationFn: login,
     onSuccess: (data: AuthResponse) => {
+      queryClient.removeQueries();
       authStorage.set(data.accessToken);
-      router.push("/transactions");
+      router.push("/");
+      router.refresh();
     },
   });
 

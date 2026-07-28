@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import type { Prisma } from "@expense-tracker/database";
 import type {
+  PaginatedResponse,
   TransactionDto,
   TransactionSummaryDto,
   TransactionType,
@@ -9,6 +11,8 @@ import { PrismaService } from "../prisma/prisma.service";
 import type { CreateTransactionDto } from "./dto/create-transaction.dto";
 import type { FindTransactionsQueryDto } from "./dto/find-transactions-query.dto";
 import type { UpdateTransactionDto } from "./dto/update-transaction.dto";
+
+const TRANSACTIONS_PAGE_SIZE = 10;
 
 interface CategoryRecord {
   id: string;
@@ -34,25 +38,44 @@ interface TransactionRecord {
 export class TransactionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(userId: string, query: FindTransactionsQueryDto): Promise<TransactionDto[]> {
-    const { type, categoryId, dateFrom, dateTo } = query;
+  async findAll(
+    userId: string,
+    query: FindTransactionsQueryDto,
+  ): Promise<PaginatedResponse<TransactionDto>> {
+    const { type, categoryId, dateFrom, dateTo, search } = query;
+    const page = query.page ?? 1;
 
-    const transactions = await this.prisma.transaction.findMany({
-      where: {
-        userId,
-        ...(type && { type }),
-        ...(categoryId && { categoryId }),
-        ...((dateFrom || dateTo) && {
-          date: {
-            ...(dateFrom && { gte: new Date(dateFrom) }),
-            ...(dateTo && { lte: new Date(dateTo) }),
-          },
-        }),
-      },
-      include: { category: true },
-      orderBy: { date: "desc" },
-    });
-    return transactions.map((transaction) => this.toDto(transaction));
+    const where = {
+      userId,
+      ...(type && { type }),
+      ...(categoryId && { categoryId }),
+      ...(search && { description: { contains: search, mode: "insensitive" as const } }),
+      ...((dateFrom || dateTo) && {
+        date: {
+          ...(dateFrom && { gte: new Date(dateFrom) }),
+          ...(dateTo && { lte: new Date(dateTo) }),
+        },
+      }),
+    } satisfies Prisma.TransactionWhereInput;
+
+    const [totalItems, transactions] = await Promise.all([
+      this.prisma.transaction.count({ where }),
+      this.prisma.transaction.findMany({
+        where,
+        include: { category: true },
+        orderBy: [{ date: "desc" }, { id: "desc" }],
+        skip: (page - 1) * TRANSACTIONS_PAGE_SIZE,
+        take: TRANSACTIONS_PAGE_SIZE,
+      }),
+    ]);
+
+    return {
+      items: transactions.map((transaction) => this.toDto(transaction)),
+      page,
+      pageSize: TRANSACTIONS_PAGE_SIZE,
+      totalItems,
+      totalPages: Math.ceil(totalItems / TRANSACTIONS_PAGE_SIZE),
+    };
   }
 
   async summary(userId: string, month: number, year: number): Promise<TransactionSummaryDto> {

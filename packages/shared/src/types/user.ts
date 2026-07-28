@@ -14,7 +14,7 @@ export interface UserDto {
  * DTO — a PATCH that changes nothing should not quietly answer 200.
  */
 export interface UpdateProfileInput {
-  name?: string;
+  name?: string | null;
   email?: string;
 }
 

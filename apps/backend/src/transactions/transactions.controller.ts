@@ -12,8 +12,12 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
-import type { TransactionDto, TransactionSummaryDto } from "@expense-tracker/shared";
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
+import type {
+  PaginatedResponse,
+  TransactionDto,
+  TransactionSummaryDto,
+} from "@expense-tracker/shared";
 
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
@@ -41,11 +45,25 @@ export class TransactionsController {
   }
 
   @Get()
-  @ApiOperation({ summary: "List the current user's transactions, newest first" })
+  @ApiOperation({ summary: "List the current user's paginated transactions, newest first" })
+  @ApiOkResponse({
+    description: "A page of transactions with pagination metadata",
+    schema: {
+      type: "object",
+      required: ["items", "page", "pageSize", "totalItems", "totalPages"],
+      properties: {
+        items: { type: "array", items: { type: "object" } },
+        page: { type: "integer", example: 1 },
+        pageSize: { type: "integer", example: 10 },
+        totalItems: { type: "integer", example: 23 },
+        totalPages: { type: "integer", example: 3 },
+      },
+    },
+  })
   findAll(
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: FindTransactionsQueryDto,
-  ): Promise<TransactionDto[]> {
+  ): Promise<PaginatedResponse<TransactionDto>> {
     return this.transactionsService.findAll(user.id, query);
   }
 

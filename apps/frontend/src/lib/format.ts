@@ -15,6 +15,9 @@ export function formatDate(isoDate: string): string {
     year: "numeric",
     month: "short",
     day: "numeric",
+    // Transaction dates are UTC calendar days in the API. Pinning the display
+    // zone prevents UTC midnight from appearing as the prior day west of UTC.
+    timeZone: "UTC",
   }).format(new Date(isoDate));
 }
 

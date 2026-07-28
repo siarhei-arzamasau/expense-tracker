@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { AuthResponse } from "@expense-tracker/shared";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -27,6 +27,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 
 export function RegisterForm() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
@@ -55,8 +56,10 @@ export function RegisterForm() {
     onSuccess: (data: AuthResponse) => {
       // Registration behaves exactly like login: POST /auth/register already
       // returns an AuthResponse with a token.
+      queryClient.removeQueries();
       authStorage.set(data.accessToken);
-      router.push("/transactions");
+      router.push("/");
+      router.refresh();
     },
   });
 

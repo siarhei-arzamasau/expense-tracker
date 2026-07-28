@@ -1,5 +1,7 @@
 const TOKEN_KEY = "expense-tracker.token";
 
+export const AUTH_UNAUTHORIZED_EVENT = "expense-tracker:unauthorized";
+
 /**
  * Deliberately simple: the access token lives in localStorage.
  *
@@ -21,5 +23,10 @@ export const authStorage = {
 
   clear(): void {
     window.localStorage.removeItem(TOKEN_KEY);
+  },
+
+  expire(): void {
+    this.clear();
+    window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
   },
 };

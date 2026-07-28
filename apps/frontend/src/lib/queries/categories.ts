@@ -7,14 +7,15 @@ import {
 } from "@expense-tracker/shared";
 import { queryOptions } from "@tanstack/react-query";
 
-import { apiClient, ApiError } from "../api-client";
+import { apiClient, retryApiQuery } from "../api-client";
 
 export const categoriesQueryKey = ["categories"] as const;
 
 export const categoriesQueryOptions = queryOptions({
   queryKey: categoriesQueryKey,
-  queryFn: () => apiClient.get<CategoryListItemDto[]>(API_ROUTES.categories.root),
-  retry: (failureCount, error) => !(error instanceof ApiError && error.isUnauthorized),
+  queryFn: ({ signal }) =>
+    apiClient.get<CategoryListItemDto[]>(API_ROUTES.categories.root, { signal }),
+  retry: retryApiQuery,
 });
 
 export function createCategory(input: CreateCategoryInput): Promise<CategoryDto> {

@@ -1,0 +1,364 @@
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import type {
+  ChangePasswordInput,
+  DeleteAccountInput,
+  UpdateProfileInput,
+} from "@expense-tracker/shared";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
+import { ApiError } from "@/lib/api-client";
+import { authStorage } from "@/lib/auth-storage";
+import {
+  changePassword,
+  currentUserQueryKey,
+  currentUserQueryOptions,
+  deleteAccount,
+  updateProfile,
+} from "@/lib/queries/user";
+
+const profileSchema = z.object({
+  name: z.string().max(100, "Name must be at most 100 characters"),
+  email: z.string().email("Enter a valid email address"),
+});
+
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(72, "Password must be at most 72 characters"),
+    confirmPassword: z.string(),
+  })
+  .refine((values) => values.newPassword === values.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+const deleteAccountSchema = z.object({
+  password: z.string().min(1, "Password is required"),
+});
+
+type ProfileValues = z.infer<typeof profileSchema>;
+type PasswordValues = z.infer<typeof passwordSchema>;
+type DeleteAccountValues = z.infer<typeof deleteAccountSchema>;
+
+function errorMessage(error: Error | null, fallback: string): string | null {
+  if (!error) return null;
+  return error instanceof ApiError ? error.message : fallback;
+}
+
+export default function ProfilePage() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const {
+    data: user,
+    error: userError,
+    isPending: isUserPending,
+  } = useQuery(currentUserQueryOptions);
+
+  const profileForm = useForm<ProfileValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: { name: "", email: "" },
+  });
+  const passwordForm = useForm<PasswordValues>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
+  });
+  const deletionForm = useForm<DeleteAccountValues>({
+    resolver: zodResolver(deleteAccountSchema),
+    defaultValues: { password: "" },
+  });
+
+  useEffect(() => {
+    if (user) {
+      profileForm.reset({ name: user.name ?? "", email: user.email });
+    }
+  }, [profileForm, user]);
+
+  useEffect(() => {
+    if (userError instanceof ApiError && userError.isUnauthorized) {
+      authStorage.clear();
+      queryClient.clear();
+      router.replace("/login");
+    }
+  }, [queryClient, router, userError]);
+
+  const profileMutation = useMutation({
+    mutationFn: (values: ProfileValues) => {
+      const input: UpdateProfileInput = {
+        name: values.name.trim() || null,
+        email: values.email.trim(),
+      };
+      return updateProfile(input);
+    },
+    onSuccess: async (updatedUser) => {
+      queryClient.setQueryData(currentUserQueryKey, updatedUser);
+      profileForm.reset({ name: updatedUser.name ?? "", email: updatedUser.email });
+      await queryClient.invalidateQueries({ queryKey: currentUserQueryKey });
+    },
+  });
+
+  const passwordMutation = useMutation({
+    mutationFn: (values: PasswordValues) => {
+      const input: ChangePasswordInput = {
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+      };
+      return changePassword(input);
+    },
+    onSuccess: () => passwordForm.reset(),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (values: DeleteAccountValues) => {
+      const input: DeleteAccountInput = { password: values.password };
+      return deleteAccount(input);
+    },
+    onSuccess: () => {
+      deletionForm.reset();
+      authStorage.clear();
+      queryClient.clear();
+      router.replace("/login");
+    },
+  });
+
+  const logout = (): void => {
+    authStorage.clear();
+    queryClient.clear();
+    router.replace("/login");
+  };
+
+  if (isUserPending) {
+    return (
+      <main className="mx-auto w-full max-w-3xl px-6 py-10" aria-busy="true">
+        <div className="bg-muted h-8 w-36 animate-pulse rounded" />
+        <div className="bg-muted mt-8 h-64 animate-pulse rounded-xl" />
+        <span className="sr-only">Loading profile</span>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return (
+      <main className="mx-auto w-full max-w-3xl px-6 py-10">
+        {userError && !(userError instanceof ApiError && userError.isUnauthorized) && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {errorMessage(userError, "Could not load your profile")}
+            </AlertDescription>
+          </Alert>
+        )}
+      </main>
+    );
+  }
+
+  return (
+    <main className="mx-auto w-full max-w-3xl space-y-8 px-6 py-10">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Manage your account details and security.
+          </p>
+        </div>
+        <Button type="button" variant="outline" onClick={logout}>
+          Log out
+        </Button>
+      </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Personal information</CardTitle>
+          <CardDescription>Update the name and email shown on your account.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...profileForm}>
+            <form
+              className="space-y-4"
+              noValidate
+              onSubmit={profileForm.handleSubmit((values) => profileMutation.mutate(values))}
+            >
+              <FormField
+                control={profileForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input autoComplete="name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={profileForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" autoComplete="email" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {profileMutation.error && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {errorMessage(profileMutation.error, "Could not update your profile")}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {profileMutation.isSuccess && (
+                <p className="text-sm text-emerald-700" role="status">
+                  Profile updated.
+                </p>
+              )}
+              <Button
+                type="submit"
+                disabled={profileMutation.isPending || !profileForm.formState.isDirty}
+              >
+                {profileMutation.isPending ? "Saving…" : "Save changes"}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Change password</CardTitle>
+          <CardDescription>Use at least 8 characters for your new password.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...passwordForm}>
+            <form
+              className="space-y-4"
+              noValidate
+              onSubmit={passwordForm.handleSubmit((values) => passwordMutation.mutate(values))}
+            >
+              <FormField
+                control={passwordForm.control}
+                name="currentPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Current password</FormLabel>
+                    <FormControl>
+                      <PasswordInput autoComplete="current-password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={passwordForm.control}
+                name="newPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>New password</FormLabel>
+                    <FormControl>
+                      <PasswordInput autoComplete="new-password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={passwordForm.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm new password</FormLabel>
+                    <FormControl>
+                      <PasswordInput autoComplete="new-password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {passwordMutation.error && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {errorMessage(passwordMutation.error, "Could not change your password")}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {passwordMutation.isSuccess && (
+                <p className="text-sm text-emerald-700" role="status">
+                  Password changed.
+                </p>
+              )}
+              <Button type="submit" disabled={passwordMutation.isPending}>
+                {passwordMutation.isPending ? "Updating…" : "Change password"}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <CardTitle>Delete account</CardTitle>
+          <CardDescription>
+            Permanently delete your account, categories, and transactions. This cannot be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...deletionForm}>
+            <form
+              className="space-y-4"
+              noValidate
+              onSubmit={deletionForm.handleSubmit((values) => deleteMutation.mutate(values))}
+            >
+              <FormField
+                control={deletionForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm your password</FormLabel>
+                    <FormControl>
+                      <PasswordInput autoComplete="current-password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {deleteMutation.error && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {errorMessage(deleteMutation.error, "Could not delete your account")}
+                  </AlertDescription>
+                </Alert>
+              )}
+              <Button type="submit" variant="destructive" disabled={deleteMutation.isPending}>
+                {deleteMutation.isPending ? "Deleting…" : "Delete account permanently"}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </main>
+  );
+}

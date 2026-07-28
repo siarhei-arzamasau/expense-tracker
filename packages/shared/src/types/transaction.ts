@@ -24,6 +24,23 @@ export interface TransactionDto {
   createdAt: string;
 }
 
+export interface PaginatedResponse<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface TransactionQuery {
+  page?: number;
+  search?: string;
+  type?: TransactionType;
+  categoryId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
 export interface TransactionSummaryDto {
   month: number;
   year: number;

@@ -1,84 +1,74 @@
-import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { CommandBus, QueryBus } from "@nestjs/cqrs";
 import { JwtService } from "@nestjs/jwt";
 import type { AuthResponse, UserDto } from "@expense-tracker/shared";
-import * as argon2 from "argon2";
 
-import { PrismaService } from "../prisma/prisma.service";
+import { RegisterUserCommand } from "../users/commands/register-user.command";
+import { GetUserByIdQuery } from "../users/queries/get-user-by-id.query";
+import { VerifyUserCredentialsQuery } from "../users/queries/verify-user-credentials.query";
 import type { LoginDto } from "./dto/login.dto";
 import type { RegisterDto } from "./dto/register.dto";
 import type { JwtPayload } from "./types";
 
+/**
+ * Owns tokens, and nothing else.
+ *
+ * Everything about the user — storage, hashing, uniqueness — reaches this class
+ * through the buses. There is no PrismaService and no argon2 here, and no
+ * import of UsersService: the command and query classes are the whole contract.
+ */
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
     private readonly jwt: JwtService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (existing) {
-      throw new ConflictException("An account with that email already exists");
-    }
-
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        name: dto.name ?? null,
-        password: await argon2.hash(dto.password),
-      },
-    });
+    // The handler raises ConflictException if the email is taken.
+    const user = await this.commandBus.execute(
+      new RegisterUserCommand(dto.email, dto.password, dto.name),
+    );
 
     return this.buildAuthResponse(user);
   }
 
   async login(dto: LoginDto): Promise<AuthResponse> {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const user = await this.queryBus.execute(
+      new VerifyUserCredentialsQuery(dto.email, dto.password),
+    );
 
-    // Same message and roughly the same work either way, so the response does
-    // not reveal whether the email exists.
-    if (!user || !(await argon2.verify(user.password, dto.password))) {
+    // One message for both an unknown email and a bad password, so the response
+    // does not reveal which emails are registered.
+    if (!user) {
       throw new UnauthorizedException("Invalid email or password");
     }
 
     return this.buildAuthResponse(user);
   }
 
+  /**
+   * Backs GET /auth/me. A token naming a user who no longer exists — deleted
+   * via DELETE /users/me, since tokens are not revoked — has to come back 401,
+   * not 404: the frontend clears its stored token on 401 and nothing else.
+   */
   async findById(id: string): Promise<UserDto> {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+    const user = await this.queryBus.execute(new GetUserByIdQuery(id));
     if (!user) {
       throw new UnauthorizedException();
     }
-    return this.toUserDto(user);
+    return user;
   }
 
-  private buildAuthResponse(user: {
-    id: string;
-    email: string;
-    name: string | null;
-    createdAt: Date;
-  }): AuthResponse {
+  private buildAuthResponse(user: UserDto): AuthResponse {
     const payload: JwtPayload = { sub: user.id, email: user.email };
 
     return {
       // expiresIn comes from JwtModule.registerAsync in auth.module.ts — one
       // source of truth rather than repeating the config lookup per call site.
       accessToken: this.jwt.sign(payload),
-      user: this.toUserDto(user),
-    };
-  }
-
-  private toUserDto(user: {
-    id: string;
-    email: string;
-    name: string | null;
-    createdAt: Date;
-  }): UserDto {
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      createdAt: user.createdAt.toISOString(),
+      user,
     };
   }
 }

@@ -9,7 +9,7 @@ generator client {
 
   // Output is a DIRECTORY; the generator writes client.ts inside it, so the
   // import path is "./generated/client" (see src/index.ts).
-  output   = "../src/generated"
+  output = "../src/generated"
 
   // The only runtime consumer of this client is the NestJS backend, which
   // compiles to CommonJS. Setting these three explicitly matters: `moduleFormat`
@@ -27,9 +27,14 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid(7))
-  email     String   @unique
-  password  String
+  id String @id @default(uuid(7))
+
+  email String @unique
+
+  // Named for what it holds. Only UsersService ever reads this column, and the
+  // value never leaves that service — everything outside sees UserDto.
+  passwordHash String
+
   name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

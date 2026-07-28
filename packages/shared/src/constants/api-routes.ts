@@ -12,6 +12,12 @@ export const API_ROUTES = {
     login: "auth/login",
     me: "auth/me",
   },
+  users: {
+    // Account management for the caller's own user. Reading the profile stays
+    // on auth/me — there is no GET users/me duplicating it.
+    me: "users/me",
+    password: "users/me/password",
+  },
   expenses: {
     root: "expenses",
     byId: (id: string) => `expenses/${id}`,

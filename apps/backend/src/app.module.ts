@@ -2,11 +2,13 @@ import { resolve } from "node:path";
 
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { CqrsModule } from "@nestjs/cqrs";
 
 import { AuthModule } from "./auth/auth.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { ExpensesModule } from "./expenses/expenses.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { UsersModule } from "./users/users.module";
 
 @Module({
   imports: [
@@ -20,8 +22,14 @@ import { PrismaModule } from "./prisma/prisma.module";
       // keep a cwd-relative entry as a fallback. First file to define a key wins.
       envFilePath: [resolve(__dirname, "../../../.env"), resolve(process.cwd(), ".env")],
     }),
+    // forRoot() and not a bare `CqrsModule`: only the dynamic form is marked
+    // global, so this is what puts CommandBus and QueryBus in reach of every
+    // module without each one importing CQRS. Mixing the two forms surfaces as
+    // "Nest can't resolve CommandBus" at boot.
+    CqrsModule.forRoot(),
     PrismaModule,
     AuthModule,
+    UsersModule,
     ExpensesModule,
     CategoriesModule,
   ],

@@ -1,9 +1,4 @@
-export interface UserDto {
-  id: string;
-  email: string;
-  name: string | null;
-  createdAt: string;
-}
+import type { UserDto } from "./user";
 
 export interface AuthResponse {
   accessToken: string;

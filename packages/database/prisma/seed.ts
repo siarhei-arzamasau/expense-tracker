@@ -50,7 +50,7 @@ async function main(): Promise<void> {
     create: {
       email: DEMO_EMAIL,
       name: "Demo User",
-      password: await argon2.hash(DEMO_PASSWORD),
+      passwordHash: await argon2.hash(DEMO_PASSWORD),
     },
   });
 

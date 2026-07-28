@@ -11,7 +11,13 @@ import type { SchemaObject } from "@nestjs/swagger/dist/interfaces/open-api-spec
  *
  * `amount` is a string on purpose — see `TransactionDto`. Postgres stores
  * Decimal(12, 2) and Prisma serializes it as a string to avoid float drift.
+ *
+ * Both constants are hand-written and therefore able to drift: adding a field
+ * to `TransactionDto` does not fail the build here, it just quietly leaves the
+ * field out of the published docs.
  */
+
+/** The embedded category, as `TransactionsService.toDto` assembles it. */
 const CATEGORY_SCHEMA: SchemaObject = {
   type: "object",
   required: ["id", "name", "color", "icon", "createdAt"],
@@ -24,6 +30,7 @@ const CATEGORY_SCHEMA: SchemaObject = {
   },
 };
 
+/** The OpenAPI shape of one `TransactionDto`; pass to `paginatedSchema()` for the list response. */
 export const TRANSACTION_SCHEMA: SchemaObject = {
   type: "object",
   required: ["id", "amount", "type", "description", "date", "categoryId", "category", "createdAt"],

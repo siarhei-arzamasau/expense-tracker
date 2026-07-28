@@ -1,6 +1,14 @@
-/** Shape attached to `request.user` by JwtStrategy.validate(). */
+/**
+ * Shape attached to `request.user` by JwtStrategy.validate(), and what the
+ * `@CurrentUser()` decorator hands to a guarded handler.
+ *
+ * Derived from the token alone — no row is read to build it, so its presence
+ * proves the token was valid, not that the user still exists.
+ */
 export interface AuthenticatedUser {
+  /** User id, from the token's `sub`. The value every query scopes by. */
   id: string;
+  /** Convenience copy of the claim; may be stale. Never authorise on it. */
   email: string;
 }
 

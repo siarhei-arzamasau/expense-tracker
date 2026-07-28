@@ -1,8 +1,18 @@
+/**
+ * A category as the API returns it.
+ *
+ * Also embedded in `TransactionDto` as a snapshot taken when the transaction
+ * was read, which is why a category mutation has to invalidate cached
+ * transactions as well as cached categories.
+ */
 export interface CategoryDto {
   id: string;
   name: string;
+  /** Hex colour, or `null` when the user picked none. */
   color: string | null;
+  /** Single emoji, or `null`. Validated by grapheme count on the backend. */
   icon: string | null;
+  /** ISO-8601 string. */
   createdAt: string;
 }
 

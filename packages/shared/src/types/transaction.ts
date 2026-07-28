@@ -41,21 +41,49 @@ export interface TransactionQuery {
   dateTo?: string;
 }
 
+/**
+ * Response of `GET /api/transactions/summary`: one calendar month's totals.
+ *
+ * Every money field is a 2-decimal string for the same reason `TransactionDto.amount`
+ * is. A month with no transactions is `"0.00"` across the board, never absent.
+ */
 export interface TransactionSummaryDto {
+  /** Echo of the requested month, 1-12. */
   month: number;
+  /** Echo of the requested year. */
   year: number;
+  /** Sum of INCOME rows, as a 2-decimal string. */
   income: string;
+  /** Sum of EXPENSE rows, as a 2-decimal string and unsigned. */
   expense: string;
   /** income - expense, as a 2-decimal string. May be negative. */
   balance: string;
 }
 
+/**
+ * Request body for `POST /api/transactions`.
+ *
+ * `amount` is a `number` here, unlike the `string` that comes back on
+ * `TransactionDto` — the asymmetry is deliberate. Sending is ergonomic and the
+ * backend converts with `.toFixed(2)` before Prisma sees it; receiving keeps
+ * the exact decimal Postgres stored.
+ *
+ * The shape only. Bounds and formats are enforced by `CreateTransactionDto` on
+ * the backend and are not mirrored here.
+ */
 export interface CreateTransactionInput {
+  /** Positive, at most 2 decimal places. The sign lives in `type`. */
   amount: number;
   type: TransactionType;
   description?: string;
+  /** ISO-8601 string. */
   date: string;
+  /** Must name a category owned by the same user, or the request 400s. */
   categoryId: string;
 }
 
+/**
+ * Request body for `PATCH /api/transactions/:id`. An omitted field is left
+ * as it is; `description: null` clears it, and it is the only field that can be.
+ */
 export type UpdateTransactionInput = Partial<CreateTransactionInput>;

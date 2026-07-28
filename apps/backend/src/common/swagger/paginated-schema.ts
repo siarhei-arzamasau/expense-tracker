@@ -8,6 +8,11 @@ import type { SchemaObject } from "@nestjs/swagger/dist/interfaces/open-api-spec
  * decorated model for `getSchemaPath()` to point at. Keeping it in one function
  * is what stops the envelope from being copy-pasted into every list endpoint
  * and drifting field by field; only the item schema varies.
+ *
+ * @param items - Schema of a single element, e.g. `TRANSACTION_SCHEMA`.
+ * @returns A schema object for `@ApiOkResponse({ schema })`. Being hand-written
+ * it cannot drift into a compile error, so a field added to the envelope has to
+ * be added here by hand as well.
  */
 export function paginatedSchema(items: SchemaObject): SchemaObject {
   return {

@@ -4,10 +4,14 @@ import { JwtService } from "@nestjs/jwt";
 import type { AuthResponse, UserDto } from "@expense-tracker/shared";
 
 import { RegisterUserCommand } from "../users/commands/register-user.command";
+import { RequestPasswordResetCommand } from "../users/commands/request-password-reset.command";
+import { ResetUserPasswordCommand } from "../users/commands/reset-user-password.command";
 import { GetUserByIdQuery } from "../users/queries/get-user-by-id.query";
 import { VerifyUserCredentialsQuery } from "../users/queries/verify-user-credentials.query";
+import type { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import type { LoginDto } from "./dto/login.dto";
 import type { RegisterDto } from "./dto/register.dto";
+import type { ResetPasswordDto } from "./dto/reset-password.dto";
 import type { JwtPayload } from "./types";
 
 /**
@@ -59,6 +63,20 @@ export class AuthService {
       throw new UnauthorizedException();
     }
     return user;
+  }
+
+  /**
+   * Resolves the same way for a known and an unknown email — the handler
+   * decides what to do with the difference, and it must not reach here.
+   */
+  async requestPasswordReset(dto: ForgotPasswordDto): Promise<void> {
+    await this.commandBus.execute(new RequestPasswordResetCommand(dto.email));
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<void> {
+    // The handler raises BadRequestException for an unknown, expired, or
+    // already-used token — one message for all three (see UsersService).
+    await this.commandBus.execute(new ResetUserPasswordCommand(dto.token, dto.password));
   }
 
   private buildAuthResponse(user: UserDto): AuthResponse {

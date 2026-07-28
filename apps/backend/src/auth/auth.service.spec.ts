@@ -94,4 +94,32 @@ describe("AuthService", () => {
       await expect(service.findById(USER.id)).rejects.toBeInstanceOf(UnauthorizedException);
     });
   });
+
+  describe("requestPasswordReset", () => {
+    it("resolves for a known email without throwing", async () => {
+      commandBus.execute.mockResolvedValue(undefined);
+
+      await expect(service.requestPasswordReset({ email: USER.email })).resolves.toBeUndefined();
+    });
+
+    it("resolves the same way for an unknown email — proof there is no email enumeration", async () => {
+      commandBus.execute.mockResolvedValue(undefined);
+
+      await expect(
+        service.requestPasswordReset({ email: "nobody@example.com" }),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  describe("resetPassword", () => {
+    it("delegates to the command bus with the token and new password", async () => {
+      commandBus.execute.mockResolvedValue(undefined);
+
+      await service.resetPassword({ token: "a".repeat(43), password: "new-password" });
+
+      expect(commandBus.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ token: "a".repeat(43), newPassword: "new-password" }),
+      );
+    });
+  });
 });

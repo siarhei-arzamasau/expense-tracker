@@ -24,14 +24,14 @@ export interface TransactionDto {
   createdAt: string;
 }
 
-export interface PaginatedResponse<T> {
-  items: T[];
-  page: number;
-  pageSize: number;
-  totalItems: number;
-  totalPages: number;
-}
-
+/**
+ * Query parameters for `GET /api/transactions`.
+ *
+ * `FindTransactionsQueryDto implements TransactionQuery`, so the backend cannot
+ * drop a filter the frontend still sends without `tsc` saying so. The rules
+ * themselves (`@Min`, `@MaxLength`, …) stay on the DTO — this is the shape
+ * only.
+ */
 export interface TransactionQuery {
   page?: number;
   search?: string;

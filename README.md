@@ -1,141 +1,293 @@
 # Expense Tracker
 
-Monorepo template: **Next.js 16** frontend, **NestJS 11** backend, **PostgreSQL 17** via **Prisma 7**, orchestrated with **Turborepo** and **pnpm workspaces**.
+A full-stack expense tracker for recording income and expenses, organizing transactions by
+category, and reviewing monthly totals. The repository is a learning-oriented TypeScript monorepo
+with a Next.js web application, a NestJS REST API, and PostgreSQL persistence through Prisma.
 
-Verified working: `pnpm typecheck`, `lint`, `build`, `test`, and `format:check` all pass, and the seeded dashboard round-trips through the API.
+## Features
 
-## Layout
+- Register, log in, and recover an account with JWT authentication.
+- View monthly income, expenses, balance, and recent activity on the dashboard.
+- Create, edit, delete, search, filter, and paginate transactions.
+- Create and manage categories with colors and emoji icons.
+- Update profile details and password, or delete the current account.
+- Explore and test the API through Swagger UI.
+- Load a ready-to-use demo account with categories and recent transactions.
 
-```
+## Technology stack
+
+| Area           | Technologies                                      |
+| -------------- | ------------------------------------------------- |
+| Monorepo       | Turborepo 2, pnpm workspaces                      |
+| Language       | TypeScript 5.9                                    |
+| Frontend       | Next.js 16 App Router, React 19, TanStack Query 5 |
+| UI and forms   | Tailwind CSS 4, Radix UI, React Hook Form, Zod    |
+| Backend        | NestJS 11, REST, Swagger/OpenAPI, Nest CQRS       |
+| Authentication | Passport, JWT bearer tokens, Argon2               |
+| Database       | PostgreSQL 17, Prisma 7, `@prisma/adapter-pg`     |
+| Testing        | Jest and Supertest (backend), Vitest (frontend)   |
+| Quality tools  | Oxlint, Oxfmt, Husky, lint-staged                 |
+
+## Project structure
+
+```text
 expense-tracker/
 ├── apps/
-│   ├── frontend/      @expense-tracker/frontend   Next.js 16, App Router
-│   └── backend/       @expense-tracker/backend    NestJS 11, REST + Swagger
-└── packages/
-    ├── database/      @expense-tracker/database   Prisma schema + generated client
-    ├── shared/        @expense-tracker/shared     API response types + route constants
-    └── typescript-config/ @expense-tracker/typescript-config
+│   ├── frontend/                 # Next.js UI, routes, API client, and React Query hooks
+│   │   └── src/app/              # App Router pages and protected application shell
+│   └── backend/                  # NestJS REST API
+│       └── src/
+│           ├── auth/             # Registration, login, JWT, and password recovery
+│           ├── users/            # Profile, password, and account management via CQRS
+│           ├── transactions/     # Transaction CRUD, filters, paging, and monthly summary
+│           ├── categories/       # Category CRUD and usage counts
+│           └── prisma/           # NestJS Prisma service
+├── packages/
+│   ├── database/                 # Prisma schema, migrations, seed, and generated client
+│   ├── shared/                   # Shared API types and route constants
+│   └── typescript-config/        # Shared TypeScript configurations
+├── docker-compose.yml            # Local PostgreSQL service
+├── turbo.json                    # Monorepo task graph and environment passthrough
+└── pnpm-workspace.yaml           # Workspace packages and dependency build allowlist
 ```
 
-Formatting and linting are centralized in `.oxfmtrc.jsonc` and `oxlint.config.ts`. Each
-workspace keeps a direct Oxlint dependency so filtered `lint` scripts work on their own.
+The dependency direction is intentional:
 
-`packages/database` is a dependency of **`apps/backend` only**. The frontend talks to the backend over HTTP and imports types from `packages/shared` — it never touches Prisma.
+```text
+Next.js frontend ──HTTP──> NestJS backend ──Prisma──> PostgreSQL
+       │                         │
+       └──── packages/shared ────┘
+                                 │
+                         packages/database
+```
 
-## Setup
+Only the backend imports `@expense-tracker/database`. Both applications import transport types and
+route constants from `@expense-tracker/shared`.
+
+## Requirements
+
+- Node.js 24 or newer. The repository pins Node `24.18.0` in `.nvmrc`.
+- pnpm 11 or newer. The repository pins pnpm `11.15.1` in `package.json`.
+- Docker with Docker Compose v2 for the local PostgreSQL instance.
+- Free local ports `3000`, `3001`, and `5432`, unless you change the corresponding environment
+  variables.
+
+`nvm` is optional, but it is the simplest way to use the pinned Node version:
 
 ```bash
-nvm use                    # Node 24.18.0
+nvm install
+nvm use
+node --version
+pnpm --version
+```
+
+## Quick start
+
+Run every command from the repository root.
+
+```bash
+# 1. Create the backend/database and frontend environment files.
 cp .env.example .env
+cp apps/frontend/.env.example apps/frontend/.env.local
 
-pnpm install               # first validation of every config in the repo
-docker compose up -d       # PostgreSQL 17 on :5432
+# 2. Install all workspace dependencies.
+pnpm install
 
-pnpm db:generate           # generate the Prisma client
-pnpm db:migrate            # create + apply the initial migration
-pnpm db:seed               # demo user, categories, transactions
+# 3. Start PostgreSQL and wait for its health check.
+docker compose up -d --wait
 
-pnpm dev                   # frontend :3000, backend :3001
+# 4. Generate Prisma code, apply development migrations, and load demo data.
+pnpm db:generate
+pnpm db:migrate
+pnpm db:seed
+
+# 5. Start the frontend and backend in watch mode.
+pnpm dev
 ```
 
-Seeded login: `demo@example.com` / `password123`.
+Open the application at [http://localhost:3000](http://localhost:3000), then log in with:
 
-| URL                                | What                                      |
-| ---------------------------------- | ----------------------------------------- |
-| http://localhost:3000              | Authenticated monthly dashboard           |
-| http://localhost:3000/transactions | Paginated, searchable transaction history |
-| http://localhost:3000/categories   | Category management                       |
-| http://localhost:3000/profile      | Profile, password, and account management |
-| http://localhost:3001/api          | Backend REST API                          |
-| http://localhost:3001/api/docs     | Swagger UI                                |
-
-## Scripts
-
-Run from the repo root; Turborepo fans them out in dependency order.
-
-| Command                     | Does                              |
-| --------------------------- | --------------------------------- |
-| `pnpm dev`                  | All apps in watch mode            |
-| `pnpm build`                | Build everything                  |
-| `pnpm typecheck`            | Typecheck every package           |
-| `pnpm lint` / `pnpm format` | Oxlint / Oxfmt                    |
-| `pnpm lint:fix`             | Apply safe Oxlint fixes           |
-| `pnpm format:check`         | Check formatting without writing  |
-| `pnpm test`                 | Backend Jest + frontend Vitest    |
-| `pnpm db:migrate`           | New migration from schema changes |
-| `pnpm db:studio`            | Prisma Studio                     |
-
-## Things that will confuse you if nobody says them
-
-**On a fresh clone the repo does not typecheck until `pnpm install` _and_ `pnpm db:generate` have both run.** Every cross-package import and the entire generated Prisma client are absent before that. A wall of unresolved-import errors at that point is expected, not a broken scaffold.
-
-**TypeScript is pinned to `^5.9.3`, not `latest`.** `latest` is 7.x (the native compiler),
-but `ts-jest` declares `typescript: ">=4.3 <7"`. TypeScript 7 is excluded by the test
-toolchain; revisit the pin when `ts-jest` supports it.
-
-**`turbo/no-undeclared-env-vars` runs through Oxlint's JavaScript-plugin bridge.** The
-bridge loads `eslint-plugin-turbo`, is currently alpha, and is the only intentional ESLint
-ecosystem compatibility layer. All other rules use Oxlint's native plugins.
-
-**Type-aware linting and `typescript/consistent-type-imports` stay disabled for NestJS.**
-Autofixing constructor dependencies such as `PrismaService` to type-only imports erases the
-decorator metadata Nest reads for dependency injection and makes the application fail at boot.
-
-**Prisma 7 changed three things that break v6-shaped configs.**
-
-1. The connection URL is no longer in `schema.prisma` — it lives in `packages/database/prisma.config.ts`.
-2. Prisma no longer auto-loads `.env`, which is why that file loads dotenv explicitly. It resolves the **repo root** `.env`, not `packages/database/.env`, because the CLI's cwd is the package directory.
-3. **`new PrismaClient()` with no options now throws** — v7 requires a driver adapter. `packages/database/src/client.ts` wires `@prisma/adapter-pg` in one place; `createPrismaClient()` and `createPgAdapter()` are the only supported ways to get a client. `PrismaService` passes the adapter through `super()`.
-
-**`pnpm-workspace.yaml` uses `allowBuilds`, not `onlyBuiltDependencies`.** pnpm 11 renamed the key and changed it from a list to a map; **the pnpm 10 key is silently ignored**. Symptom is `ERR_PNPM_IGNORED_BUILDS` on install, after which the install _reports success_ while leaving Prisma without its engines and argon2 without a native binary. `@scarf/scarf` is deliberately set to `false` — it is analytics telemetry and nothing depends on it.
-
-**If `pnpm build` fails inside `packages/database/src/generated/`, that is not your code.** The Prisma 7 `prisma-client` generator emits **TypeScript source**, and `packages/database` compiles it with our `strict` config. `skipLibCheck` will not help — it only applies to `.d.ts` files, and these are `.ts`. If the generated client trips a strict rule, relax it for that directory only, in `packages/database/tsconfig.json`:
-
-```jsonc
-// Add alongside the existing compilerOptions
-"exclude": ["node_modules", "dist", "prisma"],
-// …and if needed, a second pass that skips strict checks on generated code:
-// "compilerOptions": { "strict": false }  ← last resort; prefer the generator's
-// `compilerBuild` option or narrowing the rule that actually fails.
+```text
+Email:    demo@example.com
+Password: password123
 ```
 
-Do not "fix" the generated files — they are overwritten by the next `pnpm db:generate`.
+The seed is safe to run again: it upserts the demo user and categories, then replaces that user's
+demo transactions.
 
-**Money is `Decimal` in Postgres and `string` in JSON.** `Transaction.amount` is `Decimal(12, 2)`; Prisma serializes it to a string over the wire. `TransactionDto.amount` in `packages/shared` is therefore typed `string`. Parse it at the display boundary — treating it as a `number` gets you `NaN`.
+## Environment variables
 
-**`docker` CLI not found?** Docker Desktop is installed but its CLI may not be on your `PATH`:
+There are two environment files because the backend and frontend load variables from different
+locations:
+
+- Root `.env`: read by Docker Compose, Prisma, the seed script, and NestJS. Create it from
+  `.env.example`.
+- `apps/frontend/.env.local`: read by Next.js. Create it from `apps/frontend/.env.example`.
+
+Both files are gitignored. Never commit real credentials or secrets.
+
+### Root `.env`
+
+| Variable            | Required         | Example/default                                                             | Purpose                                                                                                      |
+| ------------------- | ---------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `POSTGRES_USER`     | For Docker setup | `expense`                                                                   | PostgreSQL user created by Docker Compose.                                                                   |
+| `POSTGRES_PASSWORD` | For Docker setup | `expense`                                                                   | PostgreSQL password. Use a non-development value outside local use.                                          |
+| `POSTGRES_DB`       | For Docker setup | `expense_tracker`                                                           | PostgreSQL database created at first container startup.                                                      |
+| `POSTGRES_PORT`     | No               | `5432`                                                                      | Host port mapped to PostgreSQL's container port `5432`.                                                      |
+| `DATABASE_URL`      | Yes              | `postgresql://expense:expense@localhost:5432/expense_tracker?schema=public` | Connection string used by Prisma and the backend.                                                            |
+| `JWT_SECRET`        | Yes              | `dev-only-change-me`                                                        | Secret used to sign and verify access tokens. Replace it outside local development.                          |
+| `JWT_EXPIRES_IN`    | No               | `7d`                                                                        | Access-token lifetime accepted by `jsonwebtoken`, such as `15m`, `1h`, or `7d`.                              |
+| `API_PORT`          | No               | `3001`                                                                      | Port used by the NestJS API.                                                                                 |
+| `WEB_ORIGIN`        | No               | `http://localhost:3000`                                                     | Exact frontend origin allowed by the backend CORS policy. Do not include a path.                             |
+| `WEB_APP_URL`       | No               | `http://localhost:3000`                                                     | Frontend base URL used to build password-reset links. Add it when the frontend URL differs from the default. |
+
+`DATABASE_URL` must match the `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, and
+`POSTGRES_PORT` values used by Docker Compose. Changing credentials after the PostgreSQL volume has
+already been created does not rewrite the existing database user; recreate or update the local
+database deliberately.
+
+Generate a suitable JWT secret for non-local environments with:
 
 ```bash
-sudo ln -sf /Applications/Docker.app/Contents/Resources/bin/docker /usr/local/bin/docker
+openssl rand -base64 32
 ```
 
-Or start Docker Desktop once and let it install the CLI tools.
+### Frontend `apps/frontend/.env.local`
 
-**`argon2` is a native module.** If pnpm can't fetch a prebuilt binary for your platform it falls back to `node-gyp`, which needs Xcode Command Line Tools (`xcode-select --install`). `@node-rs/argon2` is a drop-in replacement that ships pure prebuilt binaries if this becomes annoying.
+| Variable              | Required | Example/default             | Purpose                                                                     |
+| --------------------- | -------- | --------------------------- | --------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL` | No       | `http://localhost:3001/api` | Base URL used by the browser API client. It must include the `/api` prefix. |
 
-## Password reset
+Variables prefixed with `NEXT_PUBLIC_` are included in the browser bundle. Never place secrets in
+them. Set this value before `pnpm build`, and restart the frontend after changing it.
 
-`/login` has Log in and Register tabs; "Forgot password?" goes to `/forgot-password`. There is
-no email service in this template — `POST /api/auth/forgot-password` logs the reset URL through
-Nest's `Logger` instead of sending it, so after submitting the form you copy the link out of the
-backend's terminal output and open it yourself. It resolves to `/reset-password?token=…`, where a
-new password can be set. The response is `204` whether or not the email is registered, and the
-log only gets a URL for a known one — neither leaks which emails exist. The token is single-use
-(all of a user's outstanding tokens are cleared once one is redeemed) and expires after 60
-minutes.
+### Changing ports or hosts
 
-The link's origin comes from the `WEB_APP_URL` env var (default `http://localhost:3000`) — set it
-if the frontend runs on a different port or host, or the logged link will point at the wrong
-place.
+Keep these related settings synchronized:
 
-## Deliberate simplifications
+- If PostgreSQL credentials, database name, or host port change, update `DATABASE_URL`.
+- If `API_PORT` changes, update `NEXT_PUBLIC_API_URL` in `apps/frontend/.env.local`.
+- If the frontend origin changes, update both `WEB_ORIGIN` and `WEB_APP_URL`.
 
-This is a learning template, not a hardened production app.
+## Running services
 
-- **The JWT is stored client-side as a bearer token, not an httpOnly cookie.** Easier to inspect and debug, but readable by any XSS on the page. Production wants httpOnly + `SameSite` cookies.
-- **No refresh-token rotation** — one access token, expiry from `JWT_EXPIRES_IN`.
-- **No rate limiting** on the auth endpoints (`@nestjs/throttler` is the usual answer), including `forgot-password`.
-- **Auth state lives in `localStorage`** and is read on mount. The protected shell waits for both the token check and `GET /auth/me` before rendering account content, but authorization is still client-side rather than middleware-enforced.
-- **Password reset links are logged, not emailed.** No nodemailer, no Mailpit, nothing added to `docker-compose.yml` — see "Password reset" above.
-- **Resetting a password does not revoke previously issued JWTs.** There is no token-revocation mechanism in this template, so a JWT signed before the reset stays valid until it expires on its own.
-- **Expired or otherwise dead password-reset tokens are never swept.** There is no scheduled cleanup — rows accumulate until the owning user is deleted (cascade) or the token is consumed.
+| URL                                                                      | Description                          |
+| ------------------------------------------------------------------------ | ------------------------------------ |
+| [http://localhost:3000](http://localhost:3000)                           | Dashboard                            |
+| [http://localhost:3000/transactions](http://localhost:3000/transactions) | Transaction history and filters      |
+| [http://localhost:3000/categories](http://localhost:3000/categories)     | Category management                  |
+| [http://localhost:3000/profile](http://localhost:3000/profile)           | Profile and account management       |
+| [http://localhost:3001/api](http://localhost:3001/api)                   | REST API base URL                    |
+| [http://localhost:3001/api/docs](http://localhost:3001/api/docs)         | Swagger UI and OpenAPI documentation |
+
+The frontend and backend run on the host during development; Docker Compose starts PostgreSQL only.
+Stop the database without deleting its named volume with `docker compose down`.
+
+## API overview
+
+The API uses the global `/api` prefix. Registration, login, and password-recovery routes are public;
+all other application routes require `Authorization: Bearer <accessToken>`.
+
+| Method                   | Endpoint                                      | Authentication | Description                                             |
+| ------------------------ | --------------------------------------------- | -------------- | ------------------------------------------------------- |
+| `POST`                   | `/api/auth/register`                          | Public         | Create an account and return a JWT.                     |
+| `POST`                   | `/api/auth/login`                             | Public         | Exchange credentials for a JWT.                         |
+| `GET`                    | `/api/auth/me`                                | Bearer         | Return the current user.                                |
+| `POST`                   | `/api/auth/forgot-password`                   | Public         | Request a password-reset link.                          |
+| `POST`                   | `/api/auth/reset-password`                    | Public         | Replace a password using a reset token.                 |
+| `PATCH`                  | `/api/users/me`                               | Bearer         | Update the current user's email or name.                |
+| `PATCH`                  | `/api/users/me/password`                      | Bearer         | Change the current user's password.                     |
+| `DELETE`                 | `/api/users/me`                               | Bearer         | Delete the current account after password confirmation. |
+| `GET`, `POST`            | `/api/categories`                             | Bearer         | List or create categories.                              |
+| `PATCH`, `DELETE`        | `/api/categories/:id`                         | Bearer         | Update or delete an owned category.                     |
+| `GET`, `POST`            | `/api/transactions`                           | Bearer         | List or create transactions.                            |
+| `GET`                    | `/api/transactions/summary?month=7&year=2026` | Bearer         | Return totals for one calendar month.                   |
+| `GET`, `PATCH`, `DELETE` | `/api/transactions/:id`                       | Bearer         | Read, update, or delete an owned transaction.           |
+
+`GET /api/transactions` accepts `page`, `search`, `type`, `categoryId`, `dateFrom`, and `dateTo`
+query parameters. Pages contain 10 transactions. Use Swagger UI for request schemas, validation
+rules, response shapes, and status codes.
+
+Money is stored as PostgreSQL `Decimal(12, 2)` and returned by the API as a string to avoid
+floating-point drift. For example, a transaction amount is returned as `"82.40"`, not `82.4`.
+
+## Password-reset development flow
+
+This project does not send email. After submitting the forgot-password form for a known account,
+copy the reset URL from the backend terminal and open it in the browser. The link is single-use and
+expires after 60 minutes. The endpoint always returns `204`, including for unknown email addresses,
+so it does not disclose whether an account exists.
+
+## Common commands
+
+Run commands from the repository root; Turborepo executes dependent workspace tasks in order.
+
+| Command             | Description                                                   |
+| ------------------- | ------------------------------------------------------------- |
+| `pnpm dev`          | Run both applications in watch mode.                          |
+| `pnpm build`        | Generate Prisma code and build every package and application. |
+| `pnpm typecheck`    | Type-check all workspaces.                                    |
+| `pnpm lint`         | Lint all workspaces with Oxlint.                              |
+| `pnpm lint:fix`     | Apply safe Oxlint fixes.                                      |
+| `pnpm format`       | Format the repository with Oxfmt.                             |
+| `pnpm format:check` | Check formatting without changing files.                      |
+| `pnpm test`         | Run backend Jest tests and frontend Vitest tests.             |
+| `pnpm db:generate`  | Generate the gitignored Prisma client.                        |
+| `pnpm db:migrate`   | Create and apply development migrations.                      |
+| `pnpm db:deploy`    | Apply existing migrations without creating new ones.          |
+| `pnpm db:seed`      | Load or refresh the demo account data.                        |
+| `pnpm db:studio`    | Open Prisma Studio.                                           |
+
+Useful workspace-specific checks:
+
+```bash
+pnpm --filter @expense-tracker/backend test
+pnpm --filter @expense-tracker/backend test:e2e  # requires a running, migrated database
+pnpm --filter @expense-tracker/frontend test
+pnpm --filter @expense-tracker/frontend build
+```
+
+The root `pnpm test` command intentionally excludes backend end-to-end tests because they require a
+live PostgreSQL database.
+
+## Production-style local run
+
+Build all workspaces, apply existing migrations, and run the applications in separate terminals:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm build
+pnpm db:deploy
+
+# Terminal 1
+pnpm --filter @expense-tracker/backend start:prod
+
+# Terminal 2
+pnpm --filter @expense-tracker/frontend start
+```
+
+Set production environment values before building. In particular, replace `JWT_SECRET`, point
+`DATABASE_URL` at the target PostgreSQL instance, and set the public API and web origins correctly.
+Seeding is optional and should normally be omitted outside a disposable development environment.
+
+## Troubleshooting
+
+- **Imports from Prisma are unresolved on a fresh clone:** run `pnpm install` and
+  `pnpm db:generate`. The generated client is intentionally gitignored.
+- **The API cannot connect to PostgreSQL:** run `docker compose ps`, wait until the database is
+  healthy, and verify that `DATABASE_URL` matches the Docker settings.
+- **The browser reports CORS or network errors:** verify `WEB_ORIGIN`, `API_PORT`, and
+  `NEXT_PUBLIC_API_URL`, including the `/api` suffix on the public API URL.
+- **A reset link points to the wrong host:** set `WEB_APP_URL` in the root `.env` and restart the
+  backend.
+- **pnpm reports ignored dependency builds:** use pnpm 11 and keep the `allowBuilds` entries in
+  `pnpm-workspace.yaml`; Prisma and Argon2 require their install scripts.
+- **Argon2 cannot install a prebuilt binary:** install the platform's native build toolchain so
+  `node-gyp` can compile it.
+
+## Security scope
+
+This repository is a learning template, not a production-hardened service. Access tokens are stored
+in `localStorage`; there is no refresh-token rotation, authentication rate limiting, email delivery,
+or token revocation after a password reset. Production deployments should address those boundaries
+before handling real user or financial data.

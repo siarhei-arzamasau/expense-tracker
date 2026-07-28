@@ -127,3 +127,7 @@ Keep the dependency and expect bridge compatibility to need verification on upgr
 - Route paths come from `API_ROUTES` in `packages/shared`, so a rename on one side is a type error on the other.
 - Adding a column to a model ripples through `schema.prisma`, `packages/shared`, and both apps. `tsc` will say so, but expect more than one file.
 - Auth is a bearer token in `localStorage`, no refresh rotation, no rate limiting — deliberate learning-template simplifications documented in the README, not oversights to silently "fix."
+
+## Updating docs
+
+When adding functionality, check the documentation in @.claude/.docs/* and update it.

@@ -10,6 +10,12 @@ import type { UserDto } from "@expense-tracker/shared";
  * both "no such email" and "wrong password"; AuthService turns that into 401.
  */
 export class VerifyUserCredentialsQuery extends Query<UserDto | null> {
+  /**
+   * Creates a credential-verification query.
+   *
+   * @param email - Email address to look up.
+   * @param password - Plaintext password to compare with the stored hash.
+   */
   constructor(
     readonly email: string,
     readonly password: string,

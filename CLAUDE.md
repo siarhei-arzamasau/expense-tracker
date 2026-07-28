@@ -8,6 +8,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Two things this rule does not do. It does not ask you to rewrite existing Russian text you happen to read — several `.claude/.plans/` documents and a couple of schema comments are in Russian and stay that way, because they are dated records of past decisions. And it does not apply to user-facing product strings, which follow whatever the feature requires.
 
+## Git commits
+
+**Commit messages follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).**
+
+```
+<type>[optional scope][!]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+- **Type** is required and lowercase: `feat` for a new capability, `fix` for a bug fix, and `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `style` for the rest. `style` means formatting only — an Oxfmt pass, not a visual redesign; changing how a page looks is `feat` or `fix`.
+- **Scope** is optional, and when present is a noun in parentheses naming a part of the codebase — a workspace (`backend`, `frontend`, `database`, `shared`) or a module (`auth`, `users`, `categories`, `expenses`).
+- **Description** is imperative mood, lowercase, no trailing period, header under ~72 characters: `feat(auth): add forgot/reset password endpoints`, never `Added ...`.
+- **Body** starts one blank line after the description and explains _why_; the diff already says what.
+- **Breaking changes** take a `!` before the colon (`feat(shared)!: ...`) and/or a `BREAKING CHANGE: <explanation>` footer. Other footer tokens use hyphens instead of spaces (`Reviewed-by: ...`).
+- English, always — see **Output language** above.
+
+Two things to know. **Nothing enforces this.** `.husky/pre-commit` runs `lint-staged` and that is all — there is no `commit-msg` hook and no commitlint, so a malformed message is accepted silently. And **`git log` is not a style reference here**: history predating this rule is mostly sentence-case subjects with no type prefix (`Add category management`), with two stray conventional ones mixed in. Follow the spec rather than the neighbouring commits, and leave the existing messages alone — rewriting published history to match is not worth it.
+
 ## Project state
 
 Expense tracker: Turborepo + pnpm workspaces, Next.js 16 frontend, NestJS 11 backend, PostgreSQL 17 via Prisma 7.

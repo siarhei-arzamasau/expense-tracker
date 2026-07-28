@@ -28,6 +28,12 @@ coverage/
 npm-debug.log*
 pnpm-debug.log*
 
+# agent tooling runtime state — .claude/ is tracked on purpose, these are not.
+# .omc/skills/ is the exception: project-scoped skills are meant to be shared.
+.omc/*
+!.omc/skills/
+.omx/
+
 # editors / os
 .DS_Store
 .idea/

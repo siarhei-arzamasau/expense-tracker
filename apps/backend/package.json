@@ -9,7 +9,7 @@
     "start": "nest start",
     "start:prod": "node dist/main",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "oxlint .",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "jest --config ./test/jest-e2e.json",
@@ -35,7 +35,6 @@
     "rxjs": "^7.8.2"
   },
   "devDependencies": {
-    "@expense-tracker/eslint-config": "workspace:*",
     "@expense-tracker/typescript-config": "workspace:*",
     "@nestjs/cli": "^11.0.24",
     "@nestjs/schematics": "^11.1.0",
@@ -45,8 +44,8 @@
     "@types/node": "^24.13.3",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^7.2.1",
-    "eslint": "^9.39.5",
     "jest": "^30.4.2",
+    "oxlint": "^1.76.0",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.12",
     "typescript": "^5.9.3"

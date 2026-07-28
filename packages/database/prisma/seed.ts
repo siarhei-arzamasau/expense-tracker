@@ -1,4 +1,4 @@
-/* eslint-disable no-console -- a seed script is meant to talk to the terminal */
+/* oxlint-disable no-console -- a seed script is meant to talk to the terminal */
 import { resolve } from "node:path";
 
 import * as argon2 from "argon2";

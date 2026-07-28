@@ -18,13 +18,12 @@
     "build": "tsc",
     "dev": "tsc --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "oxlint .",
     "clean": "rm -rf dist .turbo"
   },
   "devDependencies": {
-    "@expense-tracker/eslint-config": "workspace:*",
     "@expense-tracker/typescript-config": "workspace:*",
-    "eslint": "^9.39.5",
+    "oxlint": "^1.76.0",
     "typescript": "^5.9.3"
   }
 }

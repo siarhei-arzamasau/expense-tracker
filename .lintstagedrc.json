@@ -1,5 +1,5 @@
 {
-  "*.{ts,tsx,mjs,js}": ["prettier --write", "eslint --fix"],
-  "*.{json,md,yaml,yml,css}": ["prettier --write"],
+  "*.{ts,tsx,mjs,js}": ["oxfmt", "oxlint --fix --no-error-on-unmatched-pattern"],
+  "*.{json,md,yaml,yml,css}": ["oxfmt"],
   "*.prisma": ["pnpm --filter @expense-tracker/database exec prisma format --schema"]
 }

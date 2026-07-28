@@ -14,11 +14,11 @@ expense-tracker/
 └── packages/
     ├── database/      @expense-tracker/database   Prisma schema + generated client
     ├── shared/        @expense-tracker/shared     API response types + route constants
-    ├── eslint-config/ @expense-tracker/eslint-config
     └── typescript-config/ @expense-tracker/typescript-config
 ```
 
-`@expense-tracker/eslint-config` exports **`base` and `nest`** only. Next's rules are composed in `apps/frontend/eslint.config.mjs` directly from `eslint-config-next`, the way `create-next-app` does it — `eslint-config-next` is version-locked to Next itself, so pulling it into a shared package would couple every package's lint to the frontend's framework version.
+Formatting and linting are centralized in `.oxfmtrc.jsonc` and `oxlint.config.ts`. Each
+workspace keeps a direct Oxlint dependency so filtered `lint` scripts work on their own.
 
 `packages/database` is a dependency of **`apps/backend` only**. The frontend talks to the backend over HTTP and imports types from `packages/shared` — it never touches Prisma.
 
@@ -56,7 +56,9 @@ Run from the repo root; Turborepo fans them out in dependency order.
 | `pnpm dev`                  | All apps in watch mode            |
 | `pnpm build`                | Build everything                  |
 | `pnpm typecheck`            | Typecheck every package           |
-| `pnpm lint` / `pnpm format` | ESLint / Prettier                 |
+| `pnpm lint` / `pnpm format` | Oxlint / Oxfmt                    |
+| `pnpm lint:fix`             | Apply safe Oxlint fixes           |
+| `pnpm format:check`         | Check formatting without writing  |
 | `pnpm test`                 | Backend Jest suites               |
 | `pnpm db:migrate`           | New migration from schema changes |
 | `pnpm db:studio`            | Prisma Studio                     |
@@ -65,9 +67,17 @@ Run from the repo root; Turborepo fans them out in dependency order.
 
 **On a fresh clone the repo does not typecheck until `pnpm install` _and_ `pnpm db:generate` have both run.** Every cross-package import and the entire generated Prisma client are absent before that. A wall of unresolved-import errors at that point is expected, not a broken scaffold.
 
-**TypeScript is pinned to `^5.9.3`, not `latest`.** `latest` is 7.x (the native compiler), but `typescript-eslint` declares `typescript: ">=4.8.4 <6.1.0"` and `ts-jest` declares `>=4.3 <7`. TS 6 and 7 are hard-excluded by our own lint and test toolchain — this is a peer-dependency constraint, not taste. Revisit when those two ship support.
+**TypeScript is pinned to `^5.9.3`, not `latest`.** `latest` is 7.x (the native compiler),
+but `ts-jest` declares `typescript: ">=4.3 <7"`. TypeScript 7 is excluded by the test
+toolchain; revisit the pin when `ts-jest` supports it.
 
-**ESLint is pinned to `^9.39.5`, not `latest` (10.x), and this was learned the hard way.** `typescript-eslint` supports ESLint 10 — but `eslint-config-next`'s transitive plugins (`eslint-plugin-react`, `-import`, `-jsx-a11y`) cap at `^9` and call `scopeManager.addGlobals`, which ESLint 10 removed. Linting the frontend on ESLint 10 dies with `TypeError: scopeManager.addGlobals is not a function`. Checking `typescript-eslint`'s peer range alone is not sufficient; the Next plugins are the binding constraint.
+**`turbo/no-undeclared-env-vars` runs through Oxlint's JavaScript-plugin bridge.** The
+bridge loads `eslint-plugin-turbo`, is currently alpha, and is the only intentional ESLint
+ecosystem compatibility layer. All other rules use Oxlint's native plugins.
+
+**Type-aware linting and `typescript/consistent-type-imports` stay disabled for NestJS.**
+Autofixing constructor dependencies such as `PrismaService` to type-only imports erases the
+decorator metadata Nest reads for dependency injection and makes the application fail at boot.
 
 **Prisma 7 changed three things that break v6-shaped configs.**
 

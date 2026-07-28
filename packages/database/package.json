@@ -19,7 +19,7 @@
     "build": "tsc",
     "dev": "tsc --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "oxlint .",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:reset": "prisma migrate reset",
@@ -33,12 +33,11 @@
     "@prisma/client": "^7.9.1"
   },
   "devDependencies": {
-    "@expense-tracker/eslint-config": "workspace:*",
     "@expense-tracker/typescript-config": "workspace:*",
     "@types/node": "^24.13.3",
     "argon2": "^0.45.1",
     "dotenv": "^17.4.2",
-    "eslint": "^9.39.5",
+    "oxlint": "^1.76.0",
     "prisma": "^7.9.1",
     "tsx": "^4.23.1",
     "typescript": "^5.9.3"

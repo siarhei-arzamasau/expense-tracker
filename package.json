@@ -2,6 +2,7 @@
   "name": "expense-tracker",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Expense tracker monorepo — Next.js frontend, NestJS backend, PostgreSQL via Prisma",
   "packageManager": "pnpm@11.15.1",
   "engines": {
@@ -15,8 +16,9 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "clean": "turbo run clean && rm -rf node_modules",
-    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md,yaml,yml}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,yaml,yml}\"",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "lint:fix": "oxlint --fix .",
     "db:generate": "pnpm --filter @expense-tracker/database db:generate",
     "db:migrate": "pnpm --filter @expense-tracker/database db:migrate",
     "db:deploy": "pnpm --filter @expense-tracker/database db:deploy",
@@ -25,13 +27,13 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@expense-tracker/eslint-config": "workspace:*",
     "@expense-tracker/typescript-config": "workspace:*",
     "@types/node": "^24.13.3",
-    "eslint": "^9.39.5",
+    "eslint-plugin-turbo": "^2.10.7",
     "husky": "^9.1.7",
     "lint-staged": "^17.2.0",
-    "prettier": "^3.9.6",
+    "oxfmt": "^0.60.0",
+    "oxlint": "^1.76.0",
     "turbo": "^2.10.7",
     "typescript": "^5.9.3"
   }

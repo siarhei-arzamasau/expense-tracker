@@ -51,6 +51,8 @@ Seeded login: `demo@example.com` / `password123`.
 
 **`AuthModule` reaches users only through the CQRS buses.** `apps/backend/src/users/commands/` and `queries/` are the users module's entire public surface — `UsersModule` deliberately has no `exports`, and `AuthService` injects `CommandBus`/`QueryBus` instead of `UsersService`. That is why `AuthService` contains no Prisma and no argon2: hashing, uniqueness and storage all live behind `UsersService`, which no other module can name. Adding `exports: [UsersService]` would quietly dissolve the boundary; add a command or query instead. Note this pattern is scoped to users — `CategoriesService` and `ExpensesService` still inject `PrismaService` directly, and were left that way on purpose.
 
+**`expenseCount` lives on `CategoryListItemDto`, not on `CategoryDto`.** `GET /api/categories` returns the extended type; every other place a category appears returns the flat one. The reason is that `ExpenseDto` embeds a copy of its category which `ExpensesService.toDto` assembles by hand, so a required count on `CategoryDto` would force a wasted per-expense aggregate. Related: that hand-assembled copy means the `CategoryRecord` shape is duplicated in both services, so adding a column to `Category` ripples through the schema, `packages/shared`, and each copy — `tsc` will say so, but expect more than one file.
+
 ## Constraints that look like mistakes but are not
 
 **TypeScript is pinned to `^5.9.3` while `latest` is 7.x.** `ts-jest` declares
@@ -82,11 +84,17 @@ or `@Body()` parameter regardless.
 
 **`20260728035150_rename_password_to_password_hash/migration.sql` is hand-written, and column renames generally have to be.** `prisma migrate dev` renders a rename as `DROP COLUMN` + `ADD COLUMN`, which destroys every stored hash, and then refuses to run at all because the environment is non-interactive and it wants confirmation for the data loss. The file contains `ALTER TABLE "users" RENAME COLUMN` instead, applied with `prisma migrate deploy`. `.oxfmtrc.jsonc` exempts `packages/database/prisma/migrations`, so hand-edited SQL stays as written.
 
+**`Category.icon` is validated by grapheme count (`IsSingleEmoji`), never by `@MaxLength`.** `class-validator` measures UTF-16 code units and `"👨‍👩‍👧‍👦".length === 11`, so any length cap rejects most real emoji. `categories/validators/is-single-emoji.ts` segments with `Intl.Segmenter` and requires exactly one cluster. `\p{Regional_Indicator}` is in the alternation on purpose: flags (🇺🇸) are one grapheme but are _not_ `Extended_Pictographic` and would otherwise be refused. Keycaps (1️⃣) stay rejected — that is a digit plus a combining frame, which is not what an icon field wants.
+
 **Build failures inside `packages/database/src/generated/` are not user code.** The Prisma client ships as TypeScript source and compiles under our `strict` config; `skipLibCheck` does not apply because these are `.ts`, not `.d.ts`. Never edit those files — `pnpm db:generate` overwrites them.
 
 ## Conventions
 
 - Every query and mutation is scoped by `userId`. Deletes use `deleteMany({ where: { id, userId } })` and check `count === 0` rather than `delete` + ownership lookup, so one user cannot touch another's rows. `ExpensesService.assertCategoryBelongsToUser` exists for the same reason.
+- A uniqueness check inside an update must exclude the row being edited — `if (existing && existing.id !== id)` in `CategoriesService.update`. `@@unique([userId, name])` makes the naive `create`-style check answer **409 for a save that did not rename anything**.
+- Partial updates distinguish "omitted" from "cleared" with the `...(dto.x !== undefined && { x: dto.x })` spread: `undefined` leaves the column alone, `null` clears it. For this to be typed rather than accidental, `color` and `icon` are declared `string | null` on **`CreateCategoryDto`** — `UpdateCategoryDto` is `PartialType(CreateCategoryDto)`, so the update side cannot be widened alone, and `apiClient.patch` takes an `unknown` body that would happily send a `null` no DTO admits.
+- Any category mutation must invalidate `["expenses"]` as well as `["categories"]` (`apps/frontend/src/app/categories/page.tsx`). `ExpenseDto` carries a snapshot of its category, so without the second invalidation a renamed or recoloured category keeps rendering stale in the expenses table.
+- Category search and the expense category filter are client-side on purpose: `findAll` already puts every one of the user's categories in the TanStack Query cache and expenses are unpaginated, so a server-side `?search=` would buy nothing at these sizes.
 - Formatting and linting policy lives at the repository root in `.oxfmtrc.jsonc` and
   `oxlint.config.ts`; package scripts should keep calling `oxlint .` so filtered linting works.
 - Route paths come from `API_ROUTES` in `packages/shared`, so a rename on one side is a type error on the other.

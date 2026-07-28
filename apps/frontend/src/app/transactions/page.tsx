@@ -16,6 +16,7 @@ type TypeFilter = "all" | TransactionType;
 
 export default function TransactionsPage() {
   const router = useRouter();
+  const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all");
   const [selectedType, setSelectedType] = useState<TypeFilter>("all");
 
@@ -43,10 +44,13 @@ export default function TransactionsPage() {
     }
   }, [categoriesError, error, router]);
 
+  const normalizedSearch = search.trim().toLowerCase();
   const filteredTransactions =
     transactions?.filter((transaction) => {
       if (selectedCategory !== "all" && transaction.categoryId !== selectedCategory) return false;
       if (selectedType !== "all" && transaction.type !== selectedType) return false;
+      if (normalizedSearch && !transaction.description?.toLowerCase().includes(normalizedSearch))
+        return false;
       return true;
     }) ?? [];
 
@@ -97,6 +101,19 @@ export default function TransactionsPage() {
         <p className="text-muted-foreground text-sm">
           No transactions yet. Run <code className="font-mono">pnpm db:seed</code> for sample data.
         </p>
+      )}
+
+      {transactions && transactions.length > 0 && (
+        <label className="mb-4 block max-w-sm space-y-1 text-sm">
+          <span className="font-medium">Search</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by description"
+            className="border-input block w-full rounded-md border px-3 py-2 text-sm"
+          />
+        </label>
       )}
 
       {transactions && transactions.length > 0 && (
@@ -152,7 +169,11 @@ export default function TransactionsPage() {
       )}
 
       {transactions && transactions.length > 0 && filteredTransactions.length === 0 && (
-        <p className="text-muted-foreground text-sm">No transactions match these filters.</p>
+        <p className="text-muted-foreground text-sm">
+          {normalizedSearch
+            ? "No transactions match your search and filters."
+            : "No transactions match these filters."}
+        </p>
       )}
 
       {filteredTransactions.length > 0 && (

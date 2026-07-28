@@ -87,4 +87,20 @@ describe("App (e2e)", () => {
       .set("Authorization", `Bearer ${accessToken}`)
       .expect(401);
   });
+
+  it("answers 204 for a forgot-password request on an unregistered email", () => {
+    // Same response as a known email — the point is that the caller cannot
+    // tell the two cases apart.
+    return request(app.getHttpServer())
+      .post("/api/auth/forgot-password")
+      .send({ email: "nobody-e2e@example.com" })
+      .expect(204);
+  });
+
+  it("answers 400 for a reset-password request with a garbage token", () => {
+    return request(app.getHttpServer())
+      .post("/api/auth/reset-password")
+      .send({ token: "not-a-real-token", password: "new-password123" })
+      .expect(400);
+  });
 });

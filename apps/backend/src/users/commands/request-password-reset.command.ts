@@ -6,6 +6,11 @@ import { Command } from "@nestjs/cqrs";
  * UsersService and the handler (see RequestPasswordResetHandler).
  */
 export class RequestPasswordResetCommand extends Command<void> {
+  /**
+   * Creates a password-reset request command.
+   *
+   * @param email - Account email to look up without exposing whether it exists.
+   */
   constructor(readonly email: string) {
     super();
   }

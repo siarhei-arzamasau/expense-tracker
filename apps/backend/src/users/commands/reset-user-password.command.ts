@@ -7,6 +7,12 @@ import { Command } from "@nestjs/cqrs";
  * commands — `token` alone is enough to reset this account's password.
  */
 export class ResetUserPasswordCommand extends Command<void> {
+  /**
+   * Creates a command that consumes a password-reset credential.
+   *
+   * @param token - Raw single-use token from the reset link.
+   * @param newPassword - Plaintext replacement password to hash and store.
+   */
   constructor(
     readonly token: string,
     readonly newPassword: string,

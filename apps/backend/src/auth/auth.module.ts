@@ -7,6 +7,15 @@ import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 
+/**
+ * Authentication composition root.
+ *
+ * Configures Passport's JWT strategy and token signing from environment
+ * settings, exposes the public auth controller, and exports `AuthService` for
+ * consumers that need its token/user boundary. User storage and password work
+ * remain behind the globally registered CQRS buses rather than being imported
+ * from `UsersModule`.
+ */
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: "jwt" }),

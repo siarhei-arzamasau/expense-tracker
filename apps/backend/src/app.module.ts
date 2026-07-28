@@ -10,6 +10,13 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { TransactionsModule } from "./transactions/transactions.module";
 import { UsersModule } from "./users/users.module";
 
+/**
+ * Root composition for the HTTP application.
+ *
+ * Configuration and CQRS are global infrastructure; feature modules own their
+ * controllers and providers. `PrismaModule` supplies one global client and
+ * connection pool to every persistence consumer.
+ */
 @Module({
   imports: [
     ConfigModule.forRoot({

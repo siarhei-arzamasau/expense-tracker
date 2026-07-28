@@ -29,6 +29,13 @@ export class AuthService {
     private readonly jwt: JwtService,
   ) {}
 
+  /**
+   * Creates a user through CQRS and signs an access token for it.
+   *
+   * @param dto - Validated registration fields.
+   * @returns The public user together with a signed bearer token.
+   * @throws {ConflictException} 409 — the email is already registered.
+   */
   async register(dto: RegisterDto): Promise<AuthResponse> {
     // The handler raises ConflictException if the email is taken.
     const user = await this.commandBus.execute(
@@ -38,6 +45,13 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
+  /**
+   * Verifies credentials through CQRS and signs an access token on success.
+   *
+   * @param dto - Validated login credentials.
+   * @returns The public user together with a signed bearer token.
+   * @throws {UnauthorizedException} 401 — the email is unknown or password is wrong.
+   */
   async login(dto: LoginDto): Promise<AuthResponse> {
     const user = await this.queryBus.execute(
       new VerifyUserCredentialsQuery(dto.email, dto.password),
@@ -56,6 +70,10 @@ export class AuthService {
    * Backs GET /auth/me. A token naming a user who no longer exists — deleted
    * via DELETE /users/me, since tokens are not revoked — has to come back 401,
    * not 404: the frontend clears its stored token on 401 and nothing else.
+   *
+   * @param id - User id taken from the validated JWT subject.
+   * @returns The current public user record.
+   * @throws {UnauthorizedException} 401 — no user currently has that id.
    */
   async findById(id: string): Promise<UserDto> {
     const user = await this.queryBus.execute(new GetUserByIdQuery(id));
@@ -68,17 +86,33 @@ export class AuthService {
   /**
    * Resolves the same way for a known and an unknown email — the handler
    * decides what to do with the difference, and it must not reach here.
+   *
+   * @param dto - Validated email address.
+   * @returns After the request has been handled, without revealing account existence.
    */
   async requestPasswordReset(dto: ForgotPasswordDto): Promise<void> {
     await this.commandBus.execute(new RequestPasswordResetCommand(dto.email));
   }
 
+  /**
+   * Replaces a password through the users command boundary.
+   *
+   * @param dto - Validated single-use token and replacement password.
+   * @returns After the password is stored and token is consumed.
+   * @throws {BadRequestException} 400 — the token is unknown, expired, or already used.
+   */
   async resetPassword(dto: ResetPasswordDto): Promise<void> {
     // The handler raises BadRequestException for an unknown, expired, or
     // already-used token — one message for all three (see UsersService).
     await this.commandBus.execute(new ResetUserPasswordCommand(dto.token, dto.password));
   }
 
+  /**
+   * Signs the canonical JWT payload and pairs it with the public user.
+   *
+   * @param user - Public user returned by the users CQRS boundary.
+   * @returns The user and a signed access token using the module-level expiry configuration.
+   */
   private buildAuthResponse(user: UserDto): AuthResponse {
     const payload: JwtPayload = { sub: user.id, email: user.email };
 

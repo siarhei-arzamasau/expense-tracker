@@ -12,6 +12,13 @@ import type { UserDto } from "@expense-tracker/shared";
  * RegisterUserCommand(...))` resolve to UserDto without a type argument.
  */
 export class RegisterUserCommand extends Command<UserDto> {
+  /**
+   * Creates a registration command.
+   *
+   * @param email - Email address for the new account.
+   * @param password - Plaintext password that the users service will hash.
+   * @param name - Optional display name; omission is stored as `null`.
+   */
   constructor(
     readonly email: string,
     readonly password: string,

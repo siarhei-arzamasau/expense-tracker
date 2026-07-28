@@ -25,6 +25,15 @@ export class RequestPasswordResetHandler implements ICommandHandler<RequestPassw
     private readonly config: ConfigService,
   ) {}
 
+  /**
+   * Creates and logs a development reset link for a known email.
+   *
+   * Unknown emails follow the same successful command path but do not produce
+   * a link, preventing the caller from using the endpoint to enumerate users.
+   *
+   * @param command - Email address for which a reset was requested.
+   * @returns A promise that resolves after the request has been handled.
+   */
   async execute(command: RequestPasswordResetCommand): Promise<void> {
     const rawToken = await this.users.createPasswordResetToken(command.email);
     if (!rawToken) {

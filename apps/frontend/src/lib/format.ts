@@ -20,9 +20,3 @@ export function formatDate(isoDate: string): string {
     timeZone: "UTC",
   }).format(new Date(isoDate));
 }
-
-/** Sums decimal strings in integer cents to avoid float drift. */
-export function sumAmounts(amounts: string[]): string {
-  const cents = amounts.reduce((total, amount) => total + Math.round(Number(amount) * 100), 0);
-  return (cents / 100).toFixed(2);
-}

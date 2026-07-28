@@ -1,3 +1,4 @@
+export { AddTransactionAction } from "./add-transaction-action";
 export { AddTransactionDialog } from "./add-transaction-dialog";
 export type { AddTransactionDialogProps } from "./add-transaction-dialog";
 export { TransactionList } from "./transaction-list";

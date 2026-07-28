@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   LogOut,
@@ -20,6 +20,7 @@ import { Dialog } from "radix-ui";
 import { ApiError } from "@/lib/api-client";
 import { authStorage } from "@/lib/auth-storage";
 import { currentUserQueryOptions } from "@/lib/queries/user";
+import { useLogout } from "@/lib/use-logout";
 
 interface NavigationItem {
   href: string;
@@ -38,14 +39,19 @@ function isActivePath(pathname: string, href: string): boolean {
   return href === "/" ? pathname === href : pathname.startsWith(href);
 }
 
+/**
+ * `[...word][0]`, not `word[0]`: string indexing addresses UTF-16 code units,
+ * so a name starting with an emoji or any astral character yields half a
+ * surrogate pair and renders as "�". Iterating yields whole code points.
+ */
+function firstCharacter(word: string): string {
+  return [...word][0] ?? "";
+}
+
 function getInitials(name: string | null, email: string): string {
   const source = name?.trim() || email;
   const words = source.split(/\s+/).filter(Boolean);
-  return words
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase();
+  return words.slice(0, 2).map(firstCharacter).join("").toUpperCase();
 }
 
 interface NavigationProps {
@@ -82,10 +88,14 @@ function Navigation({ pathname, onNavigate }: NavigationProps) {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const logout = useLogout();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const hasToken = authStorage.get() !== null;
 
+  // The only redirect this shell owns: no token means no request was ever made,
+  // so nothing else can notice. A 401 on the request below is handled globally
+  // — `api-client` expires the token and `Providers` navigates — and repeating
+  // that here would just race it.
   useEffect(() => {
     if (!hasToken) {
       router.replace("/login");
@@ -96,20 +106,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     ...currentUserQueryOptions,
     enabled: hasToken,
   });
-
-  useEffect(() => {
-    if (userQuery.error instanceof ApiError && userQuery.error.isUnauthorized) {
-      authStorage.clear();
-      queryClient.clear();
-      router.replace("/login");
-    }
-  }, [queryClient, router, userQuery.error]);
-
-  const logout = (): void => {
-    authStorage.clear();
-    queryClient.clear();
-    router.replace("/login");
-  };
 
   if (!hasToken || userQuery.isPending) {
     return (
@@ -211,7 +207,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 top-16 z-30 bg-black/30 md:hidden" />
           <Dialog.Content
-            id="mobile-navigation"
+            // No `id` here: Radix generates one, points the trigger's
+            // `aria-controls` at it, and spreads caller props last — so an id of
+            // our own silently wins and leaves that `aria-controls` dangling.
             aria-describedby={undefined}
             className="bg-background fixed inset-y-0 top-16 right-0 z-40 flex w-72 flex-col border-l p-4 shadow-xl focus:outline-none md:hidden"
           >

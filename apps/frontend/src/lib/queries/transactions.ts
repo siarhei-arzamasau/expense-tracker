@@ -6,17 +6,24 @@ import {
   type TransactionQuery,
   type TransactionSummaryDto,
 } from "@expense-tracker/shared";
-import { queryOptions } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 
 import { apiClient, retryApiQuery } from "../api-client";
 
-function compactQuery(query: TransactionQuery): TransactionQuery {
+/**
+ * Drops keys the API should not receive at all.
+ *
+ * Also what makes the query key stable: `{ page: 1 }` and
+ * `{ page: 1, search: "" }` describe the same request and must not open two
+ * cache entries.
+ */
+export function compactQuery(query: TransactionQuery): TransactionQuery {
   return Object.fromEntries(
     Object.entries(query).filter(([, value]) => value !== undefined && value !== ""),
   ) as TransactionQuery;
 }
 
-function serializeQuery(query: TransactionQuery): string {
+export function serializeQuery(query: TransactionQuery): string {
   const searchParams = new URLSearchParams();
 
   for (const [key, value] of Object.entries(compactQuery(query))) {
@@ -48,6 +55,11 @@ export function transactionsQueryOptions(query: TransactionQuery) {
         { signal },
       ),
     retry: retryApiQuery,
+    // Paging and filtering change the query key, and an unseen key resolves to
+    // `data: undefined` — which would blank the table *and* unmount the pager
+    // the user just clicked, taking keyboard focus with it. Holding the last
+    // page keeps the controls mounted while the next one loads.
+    placeholderData: keepPreviousData,
   });
 }
 

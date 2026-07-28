@@ -50,6 +50,21 @@ function defaultDate(): string {
   return localDate.toISOString().slice(0, 10);
 }
 
+/**
+ * Called fresh on every reset, never hoisted to a constant: `defaultDate()`
+ * must be today's date each time the dialog opens, not the date the module was
+ * first evaluated.
+ */
+function blankTransaction(categories: CategoryListItemDto[]): TransactionFormValues {
+  return {
+    type: "EXPENSE",
+    amount: "",
+    categoryId: categories[0]?.id ?? "",
+    date: defaultDate(),
+    description: "",
+  };
+}
+
 export function AddTransactionDialog({
   categories,
   triggerLabel = "Add transaction",
@@ -63,13 +78,7 @@ export function AddTransactionDialog({
     formState: { errors },
   } = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
-    defaultValues: {
-      type: "EXPENSE",
-      amount: "",
-      categoryId: categories[0]?.id ?? "",
-      date: defaultDate(),
-      description: "",
-    },
+    defaultValues: blankTransaction(categories),
   });
 
   const mutation = useMutation({
@@ -80,13 +89,7 @@ export function AddTransactionDialog({
         queryClient.invalidateQueries({ queryKey: transactionQueryKeys.summaries() }),
         queryClient.invalidateQueries({ queryKey: categoriesQueryKey }),
       ]);
-      reset({
-        type: "EXPENSE",
-        amount: "",
-        categoryId: categories[0]?.id ?? "",
-        date: defaultDate(),
-        description: "",
-      });
+      reset(blankTransaction(categories));
       setOpen(false);
     },
   });
@@ -94,13 +97,7 @@ export function AddTransactionDialog({
   const handleOpenChange = (nextOpen: boolean): void => {
     if (nextOpen) {
       mutation.reset();
-      reset({
-        type: "EXPENSE",
-        amount: "",
-        categoryId: categories[0]?.id ?? "",
-        date: defaultDate(),
-        description: "",
-      });
+      reset(blankTransaction(categories));
     }
     setOpen(nextOpen);
   };

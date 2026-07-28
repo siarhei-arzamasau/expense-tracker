@@ -1,42 +1,27 @@
 "use client";
 
-import type { TransactionQuery, TransactionType } from "@expense-tracker/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
 
 import {
-  AddTransactionDialog,
+  AddTransactionAction,
   TransactionList,
   TransactionPagination,
 } from "@/components/transactions";
 import { Button } from "@/components/ui/button";
-import { ApiError } from "@/lib/api-client";
 import { categoriesQueryOptions } from "@/lib/queries/categories";
 import { transactionsQueryOptions } from "@/lib/queries/transactions";
-
-function readPage(value: string | null): number {
-  const page = Number(value);
-  return Number.isInteger(page) && page > 0 ? page : 1;
-}
+import { hasActiveFilters, readTransactionQuery } from "@/lib/transaction-filters";
 
 function TransactionsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const page = readPage(searchParams.get("page"));
-  const search = searchParams.get("search")?.trim() ?? "";
-  const typeParam = searchParams.get("type");
-  const type: TransactionType | undefined =
-    typeParam === "INCOME" || typeParam === "EXPENSE" ? typeParam : undefined;
-  const categoryId = searchParams.get("categoryId") || undefined;
 
-  const query: TransactionQuery = {
-    page,
-    ...(search && { search }),
-    ...(type && { type }),
-    ...(categoryId && { categoryId }),
-  };
+  const query = readTransactionQuery(searchParams);
+  const { page = 1, search = "", type, categoryId } = query;
+
   const transactionsQuery = useQuery(transactionsQueryOptions(query));
   const categoriesQuery = useQuery(categoriesQueryOptions);
 
@@ -62,7 +47,7 @@ function TransactionsPageContent() {
     }
   }, [page, router, searchParams, transactionsQuery.data?.totalPages]);
 
-  const hasFilters = Boolean(search || type || categoryId);
+  const hasFilters = hasActiveFilters(query);
   const selectedCategoryExists =
     !categoryId || categoriesQuery.data?.some((category) => category.id === categoryId);
 
@@ -75,26 +60,7 @@ function TransactionsPageContent() {
             Search and filter your complete transaction history.
           </p>
         </div>
-        {categoriesQuery.isPending ? (
-          <div
-            className="bg-muted h-9 w-36 animate-pulse rounded-md"
-            aria-label="Loading transaction categories"
-          />
-        ) : categoriesQuery.error &&
-          !(categoriesQuery.error instanceof ApiError && categoriesQuery.error.isUnauthorized) ? (
-          <div className="text-right">
-            <Button type="button" variant="outline" onClick={() => void categoriesQuery.refetch()}>
-              Retry categories
-            </Button>
-            <p className="text-destructive mt-1 text-xs" role="alert">
-              Add transaction is unavailable.
-            </p>
-          </div>
-        ) : categoriesQuery.data ? (
-          <AddTransactionDialog categories={categoriesQuery.data} />
-        ) : (
-          <span />
-        )}
+        <AddTransactionAction />
       </header>
 
       <section

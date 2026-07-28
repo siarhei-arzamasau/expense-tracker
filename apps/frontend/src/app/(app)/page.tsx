@@ -6,14 +6,13 @@ import Link from "next/link";
 import { useState } from "react";
 
 import {
-  AddTransactionDialog,
+  AddTransactionAction,
   TransactionList,
   TransactionPagination,
 } from "@/components/transactions";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
 import { formatAmount } from "@/lib/format";
-import { categoriesQueryOptions } from "@/lib/queries/categories";
 import {
   transactionsQueryOptions,
   transactionSummaryQueryOptions,
@@ -67,7 +66,16 @@ export default function DashboardPage() {
 
   const transactionsQuery = useQuery(transactionsQueryOptions({ page }));
   const summaryQuery = useQuery(transactionSummaryQueryOptions(month, year));
-  const categoriesQuery = useQuery(categoriesQueryOptions);
+
+  // Pages can vanish underneath the reader, leaving an empty table and a pager
+  // pointing past the end. Corrected during render, not in an effect: React
+  // discards this pass and re-runs with the clamped page before committing, so
+  // the out-of-range page is never painted. An effect would paint the empty
+  // state first and then flip. https://react.dev/learn/you-might-not-need-an-effect
+  const totalPages = transactionsQuery.data?.totalPages ?? 0;
+  if (totalPages > 0 && page > totalPages) {
+    setPage(totalPages);
+  }
 
   return (
     <main className="mx-auto w-full max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
@@ -79,26 +87,7 @@ export default function DashboardPage() {
             Your monthly totals and latest activity at a glance.
           </p>
         </div>
-        {categoriesQuery.isPending ? (
-          <div
-            className="bg-muted h-9 w-36 animate-pulse rounded-md"
-            aria-label="Loading transaction categories"
-          />
-        ) : categoriesQuery.error &&
-          !(categoriesQuery.error instanceof ApiError && categoriesQuery.error.isUnauthorized) ? (
-          <div className="text-right">
-            <Button type="button" variant="outline" onClick={() => void categoriesQuery.refetch()}>
-              Retry categories
-            </Button>
-            <p className="text-destructive mt-1 text-xs" role="alert">
-              Add transaction is unavailable.
-            </p>
-          </div>
-        ) : categoriesQuery.data ? (
-          <AddTransactionDialog categories={categoriesQuery.data} />
-        ) : (
-          <span />
-        )}
+        <AddTransactionAction />
       </header>
 
       <section aria-label={`Financial summary for ${monthLabel}`}>

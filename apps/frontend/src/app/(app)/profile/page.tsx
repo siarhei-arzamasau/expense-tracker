@@ -7,7 +7,6 @@ import type {
   UpdateProfileInput,
 } from "@expense-tracker/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -26,7 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { ApiError } from "@/lib/api-client";
-import { authStorage } from "@/lib/auth-storage";
+import { useLogout } from "@/lib/use-logout";
 import {
   changePassword,
   currentUserQueryKey,
@@ -68,8 +67,8 @@ function errorMessage(error: Error | null, fallback: string): string | null {
 }
 
 export default function ProfilePage() {
-  const router = useRouter();
   const queryClient = useQueryClient();
+  const logout = useLogout();
   const {
     data: user,
     error: userError,
@@ -95,14 +94,6 @@ export default function ProfilePage() {
     }
   }, [profileForm, user]);
 
-  useEffect(() => {
-    if (userError instanceof ApiError && userError.isUnauthorized) {
-      authStorage.clear();
-      queryClient.clear();
-      router.replace("/login");
-    }
-  }, [queryClient, router, userError]);
-
   const profileMutation = useMutation({
     mutationFn: (values: ProfileValues) => {
       const input: UpdateProfileInput = {
@@ -111,10 +102,12 @@ export default function ProfilePage() {
       };
       return updateProfile(input);
     },
-    onSuccess: async (updatedUser) => {
+    onSuccess: (updatedUser) => {
+      // PATCH returns the saved user, so seeding the cache with it is the whole
+      // update — an invalidate here would only spend a round trip re-fetching
+      // what we are already holding, and the shell's header would flicker.
       queryClient.setQueryData(currentUserQueryKey, updatedUser);
       profileForm.reset({ name: updatedUser.name ?? "", email: updatedUser.email });
-      await queryClient.invalidateQueries({ queryKey: currentUserQueryKey });
     },
   });
 
@@ -136,17 +129,9 @@ export default function ProfilePage() {
     },
     onSuccess: () => {
       deletionForm.reset();
-      authStorage.clear();
-      queryClient.clear();
-      router.replace("/login");
+      logout();
     },
   });
-
-  const logout = (): void => {
-    authStorage.clear();
-    queryClient.clear();
-    router.replace("/login");
-  };
 
   if (isUserPending) {
     return (

@@ -1,6 +1,8 @@
 import { ChangeUserPasswordHandler } from "./change-user-password.handler";
 import { DeleteUserHandler } from "./delete-user.handler";
 import { RegisterUserHandler } from "./register-user.handler";
+import { RequestPasswordResetHandler } from "./request-password-reset.handler";
+import { ResetUserPasswordHandler } from "./reset-user-password.handler";
 import { UpdateUserProfileHandler } from "./update-user-profile.handler";
 
 /**
@@ -14,11 +16,15 @@ export const USERS_COMMAND_HANDLERS = [
   UpdateUserProfileHandler,
   ChangeUserPasswordHandler,
   DeleteUserHandler,
+  RequestPasswordResetHandler,
+  ResetUserPasswordHandler,
 ];
 
 export {
   ChangeUserPasswordHandler,
   DeleteUserHandler,
   RegisterUserHandler,
+  RequestPasswordResetHandler,
+  ResetUserPasswordHandler,
   UpdateUserProfileHandler,
 };

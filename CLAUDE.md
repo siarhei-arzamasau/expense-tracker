@@ -21,37 +21,12 @@ Put a rule in the workspace file when it only makes sense inside that workspace,
 
 Two things this rule does not do. It does not ask you to rewrite existing Russian text you happen to read — the `PasswordResetToken.tokenHash` doc comment in `schema.prisma` is in Russian and stays that way, because it is a dated record of a past decision; a plan or doc quoting a schema comment quotes it verbatim rather than translating it, so that the quote keeps matching the code. And it does not apply to user-facing product strings, which follow whatever the feature requires.
 
-## Git branches
+## Git branches and commits
 
-Use GitHub Flow for all repository changes:
-
-- `main` is the only long-lived branch and must remain deployable. Do not commit feature work directly to it.
-- Start each change from an up-to-date `main` in a dedicated, short-lived branch.
-- Name branches `<type>/<short-kebab-case-description>`, using `feature`, `fix`, `docs`, `refactor`, `test`, or `chore` as the type; for example, `feature/frontend-homepage`.
-- Keep each branch focused on one coherent change. Bring `main` into the branch before merging when needed to resolve divergence.
-- Merge into `main` through a pull request only after the relevant checks pass and review is complete. Delete the branch after merge.
-- Do not introduce a `develop` branch or other long-lived integration branches unless the repository workflow is explicitly changed.
-
-## Git commits
-
-**Commit messages follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).**
-
-```
-<type>[optional scope][!]: <description>
-
-[optional body]
-
-[optional footer(s)]
-```
-
-- **Type** is required and lowercase: `feat` for a new capability, `fix` for a bug fix, and `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `style` for the rest. `style` means formatting only — an Oxfmt pass, not a visual redesign; changing how a page looks is `feat` or `fix`.
-- **Scope** is optional, and when present is a noun in parentheses naming a part of the codebase — a workspace (`backend`, `frontend`, `database`, `shared`) or a module (`auth`, `users`, `categories`, `transactions`).
-- **Description** is imperative mood, lowercase, no trailing period, header under ~72 characters: `feat(auth): add forgot/reset password endpoints`, never `Added ...`.
-- **Body** starts one blank line after the description and explains _why_; the diff already says what.
-- **Breaking changes** take a `!` before the colon (`feat(shared)!: ...`) and/or a `BREAKING CHANGE: <explanation>` footer. Other footer tokens use hyphens instead of spaces (`Reviewed-by: ...`).
-- English, always — see **Output language** above.
-
-Two things to know. **Nothing enforces this.** `.husky/pre-commit` runs `lint-staged` and that is all — there is no `commit-msg` hook and no commitlint, so a malformed message is accepted silently. And **`git log` is not a style reference here**: history predating this rule is mostly sentence-case subjects with no type prefix (`Add category management`), with two stray conventional ones mixed in. Follow the spec rather than the neighbouring commits, and leave the existing messages alone — rewriting published history to match is not worth it.
+Branching (GitHub Flow) and commit message rules (Conventional Commits 1.0.0) live in the
+`commit` skill at `.claude/skills/commit/SKILL.md`. Read it before creating a branch, writing a
+commit message, or opening a pull request; it is the single source of truth for both, so add
+changes there rather than restating them here.
 
 ## Project state
 

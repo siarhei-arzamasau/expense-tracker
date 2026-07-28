@@ -23,6 +23,12 @@ export const registerSchema = z
     email,
     password: newPassword,
     confirmPassword: z.string(),
+    // A boolean refined to true rather than z.literal(true): the literal's
+    // inferred `true` type cannot represent the unchecked default the form
+    // starts with, and its rejection message is not this specific.
+    acceptTerms: z.boolean().refine((accepted) => accepted, {
+      message: "Accept the Terms and Conditions and Privacy Policy to continue",
+    }),
   })
   .refine((values) => values.password === values.confirmPassword, {
     message: "Passwords do not match",

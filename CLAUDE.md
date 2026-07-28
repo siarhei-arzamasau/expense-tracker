@@ -90,7 +90,7 @@ or `@Body()` parameter regardless.
 
 **`PasswordResetToken.tokenHash` is a SHA-256 digest, not an argon2 hash.** Next to `passwordHash` this looks like an inconsistency; it isn't. argon2 salts each hash independently, so finding a row by a raw token would mean `argon2.verify` against every row in the table. The token is 32 random bytes from `crypto.randomBytes` — unguessable on its own — so it doesn't need a slow KDF, and SHA-256 being deterministic is what lets the column carry `@unique` and be found with one indexed lookup (`UsersService.hashToken`, `PasswordResetTokenRepository.findByTokenHash`).
 
-**shadcn/ui is installed but only used under `apps/frontend/src/app/{login,forgot-password,reset-password}`.** `/categories` and `/expenses` stay on their pre-existing hand-written Tailwind classes — that split is intentional (see `2026-07-28-category-management.md`, which rejected installing shadcn for that feature as scope creep, and `2026-07-28-auth-pages.md`, where the auth pages' own requirement asked for shadcn components). Don't "clean up" the inconsistency by migrating one side to match the other outside of a task that asks for it.
+**shadcn/ui is installed but only used under `apps/frontend/src/app/{login,forgot-password,reset-password,terms,privacy}`.** `/categories` and `/expenses` stay on their pre-existing hand-written Tailwind classes — that split is intentional (see `2026-07-28-category-management.md`, which rejected installing shadcn for that feature as scope creep, and `2026-07-28-auth-pages.md`, where the auth pages' own requirement asked for shadcn components). Don't "clean up" the inconsistency by migrating one side to match the other outside of a task that asks for it.
 
 ## Conventions
 

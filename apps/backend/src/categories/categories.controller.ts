@@ -7,17 +7,19 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   UseGuards,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
-import type { CategoryDto } from "@expense-tracker/shared";
+import type { CategoryDto, CategoryListItemDto } from "@expense-tracker/shared";
 
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedUser } from "../auth/types";
 import { CategoriesService } from "./categories.service";
 import { CreateCategoryDto } from "./dto/create-category.dto";
+import { UpdateCategoryDto } from "./dto/update-category.dto";
 
 @ApiTags("categories")
 @ApiBearerAuth()
@@ -28,7 +30,7 @@ export class CategoriesController {
 
   @Get()
   @ApiOperation({ summary: "List the current user's categories" })
-  findAll(@CurrentUser() user: AuthenticatedUser): Promise<CategoryDto[]> {
+  findAll(@CurrentUser() user: AuthenticatedUser): Promise<CategoryListItemDto[]> {
     return this.categoriesService.findAll(user.id);
   }
 
@@ -39,6 +41,16 @@ export class CategoriesController {
     @Body() dto: CreateCategoryDto,
   ): Promise<CategoryDto> {
     return this.categoriesService.create(user.id, dto);
+  }
+
+  @Patch(":id")
+  @ApiOperation({ summary: "Update a category" })
+  update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCategoryDto,
+  ): Promise<CategoryDto> {
+    return this.categoriesService.update(user.id, id, dto);
   }
 
   @Delete(":id")

@@ -1,26 +1,33 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import type { CategoryDto } from "@expense-tracker/shared";
+import type { CategoryDto, CategoryListItemDto } from "@expense-tracker/shared";
 
 import { PrismaService } from "../prisma/prisma.service";
 import type { CreateCategoryDto } from "./dto/create-category.dto";
+import type { UpdateCategoryDto } from "./dto/update-category.dto";
 
 interface CategoryRecord {
   id: string;
   name: string;
   color: string | null;
+  icon: string | null;
   createdAt: Date;
+}
+
+interface CategoryListRecord extends CategoryRecord {
+  _count: { expenses: number };
 }
 
 @Injectable()
 export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(userId: string): Promise<CategoryDto[]> {
+  async findAll(userId: string): Promise<CategoryListItemDto[]> {
     const categories = await this.prisma.category.findMany({
       where: { userId },
+      include: { _count: { select: { expenses: true } } },
       orderBy: { name: "asc" },
     });
-    return categories.map((category) => this.toDto(category));
+    return categories.map((category) => this.toListItemDto(category));
   }
 
   async create(userId: string, dto: CreateCategoryDto): Promise<CategoryDto> {
@@ -32,7 +39,33 @@ export class CategoriesService {
     }
 
     const category = await this.prisma.category.create({
-      data: { name: dto.name, color: dto.color ?? null, userId },
+      data: { name: dto.name, color: dto.color ?? null, icon: dto.icon ?? null, userId },
+    });
+    return this.toDto(category);
+  }
+
+  async update(userId: string, id: string, dto: UpdateCategoryDto): Promise<CategoryDto> {
+    const current = await this.prisma.category.findFirst({ where: { id, userId } });
+    if (!current) {
+      throw new NotFoundException("Category not found");
+    }
+
+    if (dto.name !== undefined) {
+      const existing = await this.prisma.category.findUnique({
+        where: { userId_name: { userId, name: dto.name } },
+      });
+      if (existing && existing.id !== id) {
+        throw new ConflictException(`A category named "${dto.name}" already exists`);
+      }
+    }
+
+    const category = await this.prisma.category.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.color !== undefined && { color: dto.color }),
+        ...(dto.icon !== undefined && { icon: dto.icon }),
+      },
     });
     return this.toDto(category);
   }
@@ -50,7 +83,15 @@ export class CategoriesService {
       id: category.id,
       name: category.name,
       color: category.color,
+      icon: category.icon,
       createdAt: category.createdAt.toISOString(),
+    };
+  }
+
+  private toListItemDto(category: CategoryListRecord): CategoryListItemDto {
+    return {
+      ...this.toDto(category),
+      expenseCount: category._count.expenses,
     };
   }
 }

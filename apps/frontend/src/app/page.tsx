@@ -18,6 +18,12 @@ export default function HomePage() {
           View expenses
         </Link>
         <Link
+          href="/categories"
+          className="border-border rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+        >
+          Categories
+        </Link>
+        <Link
           href="/login"
           className="border-border rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
         >

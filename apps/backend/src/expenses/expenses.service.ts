@@ -9,6 +9,7 @@ interface CategoryRecord {
   id: string;
   name: string;
   color: string | null;
+  icon: string | null;
   createdAt: Date;
 }
 
@@ -124,6 +125,7 @@ export class ExpensesService {
             id: expense.category.id,
             name: expense.category.name,
             color: expense.category.color,
+            icon: expense.category.icon,
             createdAt: expense.category.createdAt.toISOString(),
           }
         : null,

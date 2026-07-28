@@ -19,10 +19,10 @@ const DEMO_EMAIL = "demo@example.com";
 const DEMO_PASSWORD = "password123";
 
 const CATEGORIES = [
-  { name: "Groceries", color: "#22c55e" },
-  { name: "Transport", color: "#3b82f6" },
-  { name: "Dining", color: "#f97316" },
-  { name: "Utilities", color: "#a855f7" },
+  { name: "Groceries", color: "#22c55e", icon: "🛒" },
+  { name: "Transport", color: "#3b82f6", icon: "🚌" },
+  { name: "Dining", color: "#f97316", icon: "🍽️" },
+  { name: "Utilities", color: "#a855f7", icon: "💡" },
 ];
 
 const EXPENSES = [
@@ -57,8 +57,13 @@ async function main(): Promise<void> {
   for (const category of CATEGORIES) {
     await prisma.category.upsert({
       where: { userId_name: { userId: user.id, name: category.name } },
-      update: { color: category.color },
-      create: { name: category.name, color: category.color, userId: user.id },
+      update: { color: category.color, icon: category.icon },
+      create: {
+        name: category.name,
+        color: category.color,
+        icon: category.icon,
+        userId: user.id,
+      },
     });
   }
 

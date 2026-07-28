@@ -49,6 +49,8 @@ model Category {
   id        String   @id @default(uuid(7))
   name      String
   color     String?
+  /// One emoji. The backend's IsSingleEmoji validator enforces the rule.
+  icon      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

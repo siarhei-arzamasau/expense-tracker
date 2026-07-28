@@ -39,9 +39,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  categories          Category[]
-  expenses            Expense[]
-  passwordResetTokens PasswordResetToken[]
+  categories Category[]
+  expenses   Expense[]
 
   @@map("users")
 }
@@ -84,20 +83,4 @@ model Expense {
   @@index([userId, spentAt])
   @@index([categoryId])
   @@map("expenses")
-}
-
-model PasswordResetToken {
-  id String @id @default(uuid(7))
-
-  /// SHA-256 от токена, а не argon2: колонку надо ИСКАТЬ по значению, а argon2
-  /// солит каждый хэш и потребовал бы перебора всех строк.
-  tokenHash String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("password_reset_tokens")
 }

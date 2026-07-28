@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 
 import { USERS_COMMAND_HANDLERS } from "./commands/handlers";
+import { PasswordResetTokenRepository } from "./password-reset-token.repository";
 import { USERS_QUERY_HANDLERS } from "./queries/handlers";
 import { UsersController } from "./users.controller";
 import { UsersRepository } from "./users.repository";
@@ -16,6 +17,12 @@ import { UsersService } from "./users.service";
  */
 @Module({
   controllers: [UsersController],
-  providers: [UsersService, UsersRepository, ...USERS_COMMAND_HANDLERS, ...USERS_QUERY_HANDLERS],
+  providers: [
+    UsersService,
+    UsersRepository,
+    PasswordResetTokenRepository,
+    ...USERS_COMMAND_HANDLERS,
+    ...USERS_QUERY_HANDLERS,
+  ],
 })
 export class UsersModule {}

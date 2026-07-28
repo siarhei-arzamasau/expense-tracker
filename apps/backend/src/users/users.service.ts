@@ -7,8 +7,16 @@ import {
 } from "@nestjs/common";
 import type { UserDto } from "@expense-tracker/shared";
 import * as argon2 from "argon2";
+import { randomBytes, createHash } from "node:crypto";
 
+import { PrismaService } from "../prisma/prisma.service";
+import { PasswordResetTokenRepository } from "./password-reset-token.repository";
 import { UsersRepository, type UserRecord } from "./users.repository";
+
+/** Reset links stop working this many minutes after being issued. */
+const PASSWORD_RESET_TTL_MINUTES = 60;
+
+const INVALID_RESET_TOKEN_MESSAGE = "Reset link is invalid or has expired";
 
 /**
  * Everything the application knows how to do to a user.
@@ -20,7 +28,11 @@ import { UsersRepository, type UserRecord } from "./users.repository";
  */
 @Injectable()
 export class UsersService {
-  constructor(private readonly users: UsersRepository) {}
+  constructor(
+    private readonly users: UsersRepository,
+    private readonly passwordResetTokens: PasswordResetTokenRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async create(input: { email: string; password: string; name?: string }): Promise<UserDto> {
     const existing = await this.users.findByEmail(input.email);
@@ -125,6 +137,60 @@ export class UsersService {
       throw new UnauthorizedException("Password is incorrect");
     }
     return user;
+  }
+
+  /**
+   * Returns the raw token for an unknown email too, exactly like
+   * `verifyCredentials` returns null for both a bad email and a bad
+   * password — the caller must not be able to tell the two cases apart.
+   * `null` here means "no email lookup happened, don't log a URL."
+   */
+  async createPasswordResetToken(email: string): Promise<string | null> {
+    const user = await this.users.findByEmail(email);
+    if (!user) {
+      return null;
+    }
+
+    await this.passwordResetTokens.deleteAllForUser(user.id);
+
+    const rawToken = randomBytes(32).toString("base64url");
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60 * 1000);
+    await this.passwordResetTokens.create({
+      tokenHash: this.hashToken(rawToken),
+      expiresAt,
+      userId: user.id,
+    });
+
+    return rawToken;
+  }
+
+  /**
+   * The password update and the token wipe run in one transaction — two
+   * separate writes would leave the link live against the new password if
+   * the second write failed. That's why this bypasses UsersRepository and
+   * PasswordResetTokenRepository for the write itself: a transaction needs
+   * both queries to run against the same `tx` client.
+   */
+  async resetPassword(rawToken: string, newPassword: string): Promise<void> {
+    const record = await this.passwordResetTokens.findByTokenHash(this.hashToken(rawToken));
+    if (!record) {
+      throw new BadRequestException(INVALID_RESET_TOKEN_MESSAGE);
+    }
+
+    if (record.expiresAt < new Date()) {
+      await this.passwordResetTokens.deleteById(record.id);
+      throw new BadRequestException(INVALID_RESET_TOKEN_MESSAGE);
+    }
+
+    const passwordHash = await argon2.hash(newPassword);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: record.userId }, data: { passwordHash } });
+      await tx.passwordResetToken.deleteMany({ where: { userId: record.userId } });
+    });
+  }
+
+  private hashToken(rawToken: string): string {
+    return createHash("sha256").update(rawToken).digest("hex");
   }
 
   private toDto(user: UserRecord): UserDto {

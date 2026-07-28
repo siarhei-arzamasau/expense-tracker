@@ -83,15 +83,17 @@ from `crypto.randomBytes` — unguessable on its own — so it doesn't need a sl
 deterministic is what lets the column carry `@unique` and be found with one indexed lookup
 (`UsersService.hashToken`, `PasswordResetTokenRepository.findByTokenHash`).
 
-**Swagger reflects over classes, and several response types here are plain interfaces from
-`packages/shared`.** `GET /api/transactions` returns `PaginatedResponse<TransactionDto>` — a generic
-over two interfaces — so `getSchemaPath()` has nothing to point at and the schema is hand-written:
-`paginatedSchema()` in `common/swagger/` for the envelope, `TRANSACTION_SCHEMA` in `transactions/`
-for the item. Hand-written means it can drift; when a field is added to `TransactionDto`, add it there
-too. Endpoints returning a decorated DTO class need none of this.
+**Swagger reflects over classes, and every response type here is a plain interface from
+`packages/shared`.** `getSchemaPath()` has nothing to point at, so response schemas are hand-written:
+`paginatedSchema()` and `errorSchema()` in `common/swagger/` for the page envelope and the error body,
+`TRANSACTION_SCHEMA` / `TRANSACTION_SUMMARY_SCHEMA` in `transactions/` for the payloads. Hand-written
+means it can drift; when a field is added to `TransactionDto`, add it there too. Request bodies need
+none of this — `CreateTransactionDto` and `UpdateTransactionDto` are decorated classes and document
+themselves.
 
 ## Conventions
 
+- A documented endpoint carries `@ApiOperation` plus one response decorator per status it can answer, success and error alike. The 401 goes on the controller class next to `@ApiBearerAuth` rather than on all six methods — `@ApiUnauthorizedResponse` is inherited by every route, and the guard it describes is registered at class level too. `TransactionsController` is the worked example.
 - Every query and mutation is scoped by `userId`. Deletes use `deleteMany({ where: { id, userId } })` and check `count === 0` rather than `delete` + ownership lookup, so one user cannot touch another's rows. `TransactionsService.assertCategoryBelongsToUser` exists for the same reason.
 - A uniqueness check inside an update must exclude the row being edited — `if (existing && existing.id !== id)` in `CategoriesService.update`. `@@unique([userId, name])` makes the naive `create`-style check answer **409 for a save that did not rename anything**.
 - Partial updates distinguish "omitted" from "cleared" with the `...(dto.x !== undefined && { x: dto.x })` spread: `undefined` leaves the column alone, `null` clears it. For this to be typed rather than accidental, `color` and `icon` are declared `string | null` on **`CreateCategoryDto`** — `UpdateCategoryDto` is `PartialType(CreateCategoryDto)`, so the update side cannot be widened alone, and the frontend's `apiClient.patch` takes an `unknown` body that would happily send a `null` no DTO admits.
@@ -101,3 +103,7 @@ too. Endpoints returning a decorated DTO class need none of this.
 - `RegisterUserCommand`, `ChangeUserPasswordCommand`, `DeleteUserCommand`, `ResetUserPasswordCommand` and `VerifyUserCredentialsQuery` carry plaintext passwords, and both buses hand every message to their publisher. The in-memory default discards it, but any logging or tracing publisher added later must redact those fields. `ResetUserPasswordCommand` also carries the raw reset `token` itself — a live single-use credential, not just a password — and that field needs redacting too. `RequestPasswordResetCommand` is the one exception worth noting explicitly: it carries only an email, never the raw reset token — see `RequestPasswordResetHandler`, which is deliberately the only non-thin handler in the users module because composing and logging the reset URL is the one place that raw token is allowed to exist outside `UsersService`.
 - `UsersRepository`'s "the one place the `users` table meets Prisma" claim has one exception: `UsersService.resetPassword`'s transaction writes `users` directly, because Prisma's interactive `$transaction` needs both of its writes on the same `tx` client and the repository's methods return already-settled promises, not the `PrismaPromise`s the array form of `$transaction` requires. If you're touching that method, keep the docstrings in `users.repository.ts` and `users.service.ts` in sync rather than re-hiding the exception.
 - `GetUserByIdQuery` resolves to `UserDto | null` rather than throwing, because the caller owns the status code: `GET /auth/me` must answer **401** for a token naming a deleted user, since the frontend clears its stored token on 401 and on nothing else (`ApiError.isUnauthorized`). A 404 there strands the client holding a token that can never work.
+
+## Updating Documentation
+
+After changing any methods, you must update or add JSDoc. And add Swagger decorators for DTOs and controllers.

@@ -1,5 +1,8 @@
 import type { TransactionQuery, TransactionType } from "@expense-tracker/shared";
 
+const UUID_PATTERN =
+  /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/i;
+
 /**
  * Reads the transaction list's filter state out of the URL.
  *
@@ -21,10 +24,14 @@ function readType(value: string | null): TransactionType | undefined {
   return value === "INCOME" || value === "EXPENSE" ? value : undefined;
 }
 
+function readCategoryId(value: string | null): string | undefined {
+  return value && UUID_PATTERN.test(value) ? value : undefined;
+}
+
 export function readTransactionQuery(params: URLSearchParams): TransactionQuery {
   const search = params.get("search")?.trim() ?? "";
   const type = readType(params.get("type"));
-  const categoryId = params.get("categoryId") || undefined;
+  const categoryId = readCategoryId(params.get("categoryId"));
 
   return {
     page: readPage(params.get("page")),

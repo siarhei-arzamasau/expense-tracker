@@ -24,6 +24,7 @@ function createPrismaMock() {
 
 const USER_ID = "018f0000-0000-7000-8000-000000000001";
 const CATEGORY_ID = "018f0000-0000-7000-8000-0000000000cc";
+const TRANSACTION_ID = "018f0000-0000-7000-8000-0000000000aa";
 
 /**
  * Stand-in for Prisma's Decimal. The service only calls toFixed, and using a
@@ -46,7 +47,7 @@ function categoryRow(overrides: Record<string, unknown> = {}) {
 
 function transactionRow(overrides: Record<string, unknown> = {}) {
   return {
-    id: "018f0000-0000-7000-8000-0000000000aa",
+    id: TRANSACTION_ID,
     amount: decimal("42.50"),
     type: "EXPENSE",
     description: "Weekly shop",
@@ -239,6 +240,21 @@ describe("TransactionsService", () => {
     });
   });
 
+  describe("findOne", () => {
+    it("scopes a missing transaction lookup by id and caller user id", async () => {
+      prisma.transaction.findFirst.mockResolvedValue(null);
+
+      await expect(service.findOne(USER_ID, TRANSACTION_ID)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+
+      expect(prisma.transaction.findFirst).toHaveBeenCalledWith({
+        where: { id: TRANSACTION_ID, userId: USER_ID },
+        include: { category: true },
+      });
+    });
+  });
+
   describe("create", () => {
     it("passes an exact 2dp decimal string to Prisma, not a float", async () => {
       prisma.category.findFirst.mockResolvedValue(categoryRow());
@@ -274,13 +290,40 @@ describe("TransactionsService", () => {
     });
   });
 
+  describe("update", () => {
+    it("rejects a cross-user transaction before checking the category or writing", async () => {
+      prisma.transaction.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(USER_ID, TRANSACTION_ID, { categoryId: CATEGORY_ID }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      expect(prisma.transaction.findFirst).toHaveBeenCalledWith({
+        where: { id: TRANSACTION_ID, userId: USER_ID },
+        include: { category: true },
+      });
+      expect(prisma.category.findFirst).not.toHaveBeenCalled();
+      expect(prisma.transaction.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe("remove", () => {
+    it("scopes deletion by both transaction id and caller user id", async () => {
+      prisma.transaction.deleteMany.mockResolvedValue({ count: 1 });
+
+      await service.remove(USER_ID, TRANSACTION_ID);
+
+      expect(prisma.transaction.deleteMany).toHaveBeenCalledWith({
+        where: { id: TRANSACTION_ID, userId: USER_ID },
+      });
+    });
+
     it("throws when the transaction is not the user's", async () => {
       prisma.transaction.deleteMany.mockResolvedValue({ count: 0 });
 
-      await expect(
-        service.remove(USER_ID, "018f0000-0000-7000-8000-0000000000dd"),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.remove(USER_ID, TRANSACTION_ID)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 });

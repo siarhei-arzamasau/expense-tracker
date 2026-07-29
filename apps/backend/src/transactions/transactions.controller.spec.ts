@@ -1,4 +1,4 @@
-import { HttpStatus } from "@nestjs/common";
+import { HttpStatus, type INestApplication } from "@nestjs/common";
 import { GUARDS_METADATA, HTTP_CODE_METADATA, PATH_METADATA } from "@nestjs/common/constants";
 import { Test } from "@nestjs/testing";
 import type {
@@ -6,6 +6,7 @@ import type {
   TransactionDto,
   TransactionSummaryDto,
 } from "@expense-tracker/shared";
+import request from "supertest";
 
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthenticatedUser } from "../auth/types";
@@ -21,13 +22,12 @@ import { TransactionsService } from "./transactions.service";
  * TransactionsService — never about what the service then does, which is
  * transactions.service.spec.ts.
  *
- * A direct method call skips the HTTP pipeline, so nothing here proves the
- * guard returns 401, that ParseUUIDPipe rejects a non-UUID, or that the global
- * ValidationPipe coerces query strings to numbers and rejects unknown
- * parameters. Those need test/app.e2e-spec.ts and a live database. The
- * declaration-order and metadata cases at the bottom read the decorators
- * directly, because what they pin down is invisible to tsc, to Oxlint, and to
- * every other spec in this repository.
+ * Most cases call methods directly. The HTTP contract below separately boots
+ * this controller with a mocked service and guard so `ParseUUIDPipe` is tested
+ * through Nest without a database. Global query validation still belongs in
+ * test/app.e2e-spec.ts. The declaration-order and metadata cases read the
+ * decorators directly, because what they pin down is invisible to tsc, to
+ * Oxlint, and to every other spec in this repository.
  */
 const USER_ID = "018f0000-0000-7000-8000-000000000001";
 const TRANSACTION_ID = "018f0000-0000-7000-8000-0000000000aa";
@@ -234,5 +234,58 @@ describe("TransactionsController", () => {
 
       expect(status).toBe(HttpStatus.NO_CONTENT);
     });
+  });
+});
+
+describe("TransactionsController HTTP parameter validation", () => {
+  let app: INestApplication;
+  let service: ReturnType<typeof createServiceMock>;
+
+  beforeAll(async () => {
+    service = createServiceMock();
+
+    const moduleRef = await Test.createTestingModule({
+      controllers: [TransactionsController],
+      providers: [{ provide: TransactionsService, useValue: service }],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
+
+    app = moduleRef.createNestApplication();
+    await app.init();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it("rejects a malformed id on GET before looking up a transaction", async () => {
+    await request(app.getHttpServer())
+      .get("/transactions/not-a-uuid")
+      .expect(HttpStatus.BAD_REQUEST);
+
+    expect(service.findOne).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed id on PATCH before updating a transaction", async () => {
+    await request(app.getHttpServer())
+      .patch("/transactions/not-a-uuid")
+      .send({ description: "Updated" })
+      .expect(HttpStatus.BAD_REQUEST);
+
+    expect(service.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed id on DELETE before removing a transaction", async () => {
+    await request(app.getHttpServer())
+      .delete("/transactions/not-a-uuid")
+      .expect(HttpStatus.BAD_REQUEST);
+
+    expect(service.remove).not.toHaveBeenCalled();
   });
 });

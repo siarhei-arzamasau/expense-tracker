@@ -19,11 +19,17 @@ function TransactionsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const query = readTransactionQuery(searchParams);
+  const requestedQuery = readTransactionQuery(searchParams);
+  const categoriesQuery = useQuery(categoriesQueryOptions);
+  const query =
+    requestedQuery.categoryId &&
+    categoriesQuery.data &&
+    !categoriesQuery.data.some((category) => category.id === requestedQuery.categoryId)
+      ? { ...requestedQuery, categoryId: undefined }
+      : requestedQuery;
   const { page = 1, search = "", type, categoryId } = query;
 
   const transactionsQuery = useQuery(transactionsQueryOptions(query));
-  const categoriesQuery = useQuery(categoriesQueryOptions);
 
   const updateFilters = (updates: Record<string, string | number | undefined>): void => {
     const next = new URLSearchParams(searchParams.toString());
@@ -48,8 +54,6 @@ function TransactionsPageContent() {
   }, [page, router, searchParams, transactionsQuery.data?.totalPages]);
 
   const hasFilters = hasActiveFilters(query);
-  const selectedCategoryExists =
-    !categoryId || categoriesQuery.data?.some((category) => category.id === categoryId);
 
   return (
     <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
@@ -114,7 +118,7 @@ function TransactionsPageContent() {
           <label className="space-y-1.5 text-sm font-medium">
             <span>Category</span>
             <select
-              value={selectedCategoryExists ? (categoryId ?? "") : ""}
+              value={categoryId ?? ""}
               onChange={(event) =>
                 updateFilters({ categoryId: event.target.value || undefined, page: 1 })
               }

@@ -46,11 +46,12 @@ describe("apiClient", () => {
   it("adds the bearer token and preserves caller headers", async () => {
     mocks.getToken.mockReturnValue("access-token");
     fetchMock.mockResolvedValue(Response.json({ id: "user-1" }));
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
 
     await apiClient.get("auth/me", { headers: { "X-Trace": "trace-1" } });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3001/api/auth/me",
+      `${apiUrl}/auth/me`,
       expect.objectContaining({
         headers: {
           "Content-Type": "application/json",

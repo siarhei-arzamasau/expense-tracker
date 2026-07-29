@@ -21,6 +21,7 @@ describe("readPage", () => {
 });
 
 describe("readTransactionQuery", () => {
+  const categoryId = "8f16b2b6-f717-4e3d-a59b-f6c284874f0e";
   const query = (search: string) => readTransactionQuery(new URLSearchParams(search));
 
   it("defaults to the first page with no filters", () => {
@@ -32,11 +33,11 @@ describe("readTransactionQuery", () => {
   });
 
   it("reads every supported filter", () => {
-    expect(query("page=2&search=lunch&type=INCOME&categoryId=abc")).toEqual({
+    expect(query(`page=2&search=lunch&type=INCOME&categoryId=${categoryId}`)).toEqual({
       page: 2,
       search: "lunch",
       type: "INCOME",
-      categoryId: "abc",
+      categoryId,
     });
   });
 
@@ -49,6 +50,10 @@ describe("readTransactionQuery", () => {
   it("drops a type outside the enum", () => {
     expect(query("type=TRANSFER")).toEqual({ page: 1 });
     expect(query("type=income")).toEqual({ page: 1 });
+  });
+
+  it("drops a malformed category id", () => {
+    expect(query("categoryId=not-a-uuid")).toEqual({ page: 1 });
   });
 });
 

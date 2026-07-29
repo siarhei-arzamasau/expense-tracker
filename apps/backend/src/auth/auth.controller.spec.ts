@@ -77,8 +77,20 @@ describe("AuthController", () => {
     expect(service.findById).toHaveBeenCalledWith(USER_ID);
   });
 
-  it("guards only the current-user endpoint", () => {
+  it("does not guard the auth controller at class level", () => {
     expect(Reflect.getMetadata(GUARDS_METADATA, AuthController)).toBeUndefined();
+  });
+
+  it.each([
+    ["registration", AuthController.prototype.register],
+    ["login", AuthController.prototype.login],
+    ["password-reset requests", AuthController.prototype.forgotPassword],
+    ["password resets", AuthController.prototype.resetPassword],
+  ])("keeps %s public", (_name, handler) => {
+    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toBeUndefined();
+  });
+
+  it("guards the current-user endpoint with JwtAuthGuard", () => {
     expect(
       Reflect.getMetadata(GUARDS_METADATA, AuthController.prototype.me) as unknown[],
     ).toContain(JwtAuthGuard);

@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   logout: vi.fn(),
   refetch: vi.fn(),
+  queryOptions: undefined as unknown,
   queryResult: {} as {
     data?: { id: string; email: string; name: string | null; createdAt: string };
     error: Error | null;
@@ -20,7 +21,12 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@tanstack/react-query", () => ({ useQuery: () => mocks.queryResult }));
+vi.mock("@tanstack/react-query", () => ({
+  useQuery: (options: unknown) => {
+    mocks.queryOptions = options;
+    return mocks.queryResult;
+  },
+}));
 vi.mock("next/navigation", () => ({
   usePathname: () => mocks.pathname,
   useRouter: () => ({ replace: mocks.replace }),
@@ -40,6 +46,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.token = "access-token";
   mocks.pathname = "/transactions";
+  mocks.queryOptions = undefined;
   mocks.queryResult = { data: USER, error: null, isPending: false, refetch: mocks.refetch };
 });
 
@@ -53,6 +60,15 @@ describe("AppShell", () => {
     expect(screen.getByText("Loading your workspace…")).toBeInTheDocument();
     expect(screen.queryByText("Private content")).not.toBeInTheDocument();
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/login"));
+  });
+
+  it("disables the current-user query when no token exists", () => {
+    mocks.token = null;
+    mocks.queryResult = { data: undefined, error: null, isPending: false, refetch: mocks.refetch };
+
+    render(<AppShell>Private content</AppShell>);
+
+    expect(mocks.queryOptions).toEqual(expect.objectContaining({ enabled: false }));
   });
 
   it("shows the loading state while the current account is pending", () => {

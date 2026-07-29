@@ -107,6 +107,19 @@ describe("ProfilePage", () => {
     await waitFor(() => expect(mocks.logout).toHaveBeenCalledTimes(1));
   });
 
+  it("keeps the session active and shows the error when account deletion fails", async () => {
+    mocks.deleteAccount.mockRejectedValueOnce(new ApiError(400, "Current password is incorrect"));
+    const { user } = renderWithQuery(<ProfilePage />);
+    const password = await screen.findByLabelText("Confirm your password");
+
+    await user.type(password, "wrong-password");
+    await user.click(screen.getByRole("button", { name: "Delete account permanently" }));
+
+    expect(await screen.findByText("Current password is incorrect")).toBeInTheDocument();
+    expect(mocks.logout).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "Profile" })).toBeInTheDocument();
+  });
+
   it("shows an ordinary account-loading error", async () => {
     mocks.fetchUser.mockRejectedValueOnce(new ApiError(503, "Profile unavailable"));
     renderWithQuery(<ProfilePage />);

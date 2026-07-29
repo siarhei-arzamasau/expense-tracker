@@ -78,6 +78,28 @@ describe("CategoriesService", () => {
     });
   });
 
+  describe("create", () => {
+    it("creates the category for the caller's user id", async () => {
+      prisma.category.findUnique.mockResolvedValue(null);
+      prisma.category.create.mockResolvedValue(categoryRow());
+
+      await service.create(USER_ID, {
+        name: "Groceries",
+        color: "#22c55e",
+        icon: "🛒",
+      });
+
+      expect(prisma.category.create).toHaveBeenCalledWith({
+        data: {
+          name: "Groceries",
+          color: "#22c55e",
+          icon: "🛒",
+          userId: USER_ID,
+        },
+      });
+    });
+  });
+
   describe("update", () => {
     it("rejects a name used by another category", async () => {
       prisma.category.findFirst.mockResolvedValue(categoryRow());
@@ -126,6 +148,16 @@ describe("CategoriesService", () => {
   });
 
   describe("remove", () => {
+    it("scopes deletion by both category id and caller user id", async () => {
+      prisma.category.deleteMany.mockResolvedValue({ count: 1 });
+
+      await service.remove(USER_ID, CATEGORY_ID);
+
+      expect(prisma.category.deleteMany).toHaveBeenCalledWith({
+        where: { id: CATEGORY_ID, userId: USER_ID },
+      });
+    });
+
     it("returns 409 rather than a raw 500 when the category still has transactions", async () => {
       prisma.category.deleteMany.mockRejectedValue(fkViolation());
 

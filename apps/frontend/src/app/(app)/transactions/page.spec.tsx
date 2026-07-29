@@ -5,11 +5,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import TransactionsPage from "./page";
 
+const CATEGORY_ID = "8f16b2b6-f717-4e3d-a59b-f6c284874f0e";
+const STALE_CATEGORY_ID = "36a7d63d-4c1c-4ca3-8f75-e593e3b205af";
+
 const mocks = vi.hoisted(() => ({
   search: "",
   push: vi.fn(),
   replace: vi.fn(),
   transactionRefetch: vi.fn(),
+  transactionQueryInputs: [] as unknown[],
   transactions: {} as {
     data?: { page: number; totalPages: number; totalItems: number; items: unknown[] };
     error: Error | null;
@@ -28,8 +32,13 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(mocks.search),
 }));
 vi.mock("@tanstack/react-query", () => ({
-  useQuery: (options: { kind: string }) =>
-    options.kind === "transactions" ? mocks.transactions : mocks.categories,
+  useQuery: (options: { kind: string; query?: unknown }) => {
+    if (options.kind === "transactions") {
+      mocks.transactionQueryInputs.push(options.query);
+      return mocks.transactions;
+    }
+    return mocks.categories;
+  },
 }));
 vi.mock("@/lib/queries/transactions", () => ({
   transactionsQueryOptions: (query: unknown) => ({ kind: "transactions", query }),
@@ -55,6 +64,7 @@ vi.mock("@/components/transactions", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.transactionQueryInputs = [];
   mocks.search = "";
   mocks.transactions = {
     data: { page: 1, totalPages: 3, totalItems: 21, items: [] },
@@ -63,7 +73,7 @@ beforeEach(() => {
     refetch: mocks.transactionRefetch,
   };
   mocks.categories = {
-    data: [{ id: "category-1", name: "Groceries", icon: "🛒" }],
+    data: [{ id: CATEGORY_ID, name: "Groceries", icon: "🛒" }],
     error: null,
     isPending: false,
   };
@@ -71,7 +81,7 @@ beforeEach(() => {
 
 describe("TransactionsPage", () => {
   it("trims search input, returns to page 1, and preserves the other filters", async () => {
-    mocks.search = "page=3&search=old&type=EXPENSE&categoryId=category-1";
+    mocks.search = `page=3&search=old&type=EXPENSE&categoryId=${CATEGORY_ID}`;
     mocks.transactions.data = { page: 3, totalPages: 3, totalItems: 21, items: [] };
     const user = userEvent.setup();
     render(<TransactionsPage />);
@@ -82,18 +92,18 @@ describe("TransactionsPage", () => {
     await user.click(screen.getByRole("button", { name: "Search" }));
 
     expect(mocks.push).toHaveBeenCalledWith(
-      "/transactions?search=lunch&type=EXPENSE&categoryId=category-1",
+      `/transactions?search=lunch&type=EXPENSE&categoryId=${CATEGORY_ID}`,
     );
   });
 
   it("updates selects from the address bar and clears all active filters", async () => {
-    mocks.search = "search=lunch&type=EXPENSE&categoryId=category-1";
+    mocks.search = `search=lunch&type=EXPENSE&categoryId=${CATEGORY_ID}`;
     const user = userEvent.setup();
     render(<TransactionsPage />);
 
     await user.selectOptions(screen.getByLabelText("Type"), "INCOME");
     expect(mocks.push).toHaveBeenCalledWith(
-      "/transactions?search=lunch&type=INCOME&categoryId=category-1",
+      `/transactions?search=lunch&type=INCOME&categoryId=${CATEGORY_ID}`,
     );
 
     await user.click(screen.getByRole("button", { name: "Clear" }));
@@ -102,11 +112,12 @@ describe("TransactionsPage", () => {
   });
 
   it("does not forward a stale category id that is absent from the current list", () => {
-    mocks.search = "categoryId=deleted-category";
+    mocks.search = `categoryId=${STALE_CATEGORY_ID}`;
 
     render(<TransactionsPage />);
 
     expect(screen.getByLabelText("Category")).toHaveValue("");
+    expect(mocks.transactionQueryInputs).toContainEqual({ page: 1, categoryId: undefined });
   });
 
   it("clamps an out-of-range URL page with replace", async () => {

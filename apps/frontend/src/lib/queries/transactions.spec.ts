@@ -1,6 +1,25 @@
-import { describe, expect, it } from "vitest";
+import { API_ROUTES } from "@expense-tracker/shared";
+import { keepPreviousData } from "@tanstack/react-query";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { compactQuery, serializeQuery, transactionQueryKeys } from "./transactions";
+import {
+  compactQuery,
+  serializeQuery,
+  transactionQueryKeys,
+  transactionsQueryOptions,
+} from "./transactions";
+
+const mocks = vi.hoisted(() => ({
+  get: vi.fn(),
+  retryApiQuery: vi.fn(),
+}));
+
+vi.mock("../api-client", () => ({
+  apiClient: { get: mocks.get },
+  retryApiQuery: mocks.retryApiQuery,
+}));
+
+beforeEach(() => vi.clearAllMocks());
 
 describe("compactQuery", () => {
   it("drops undefined and empty values", () => {
@@ -48,5 +67,31 @@ describe("transactionQueryKeys", () => {
     expect(transactionQueryKeys.list({ page: 1 })).not.toEqual(
       transactionQueryKeys.list({ page: 2 }),
     );
+  });
+});
+
+describe("transactionsQueryOptions", () => {
+  it("requests the serialized list route and forwards the abort signal", async () => {
+    const signal = new AbortController().signal;
+    const options = transactionsQueryOptions({
+      page: 2,
+      search: "coffee & cake",
+      type: "EXPENSE",
+    });
+    mocks.get.mockResolvedValue({ items: [], totalItems: 0, page: 2, pageSize: 10, totalPages: 0 });
+
+    await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({ signal });
+
+    expect(mocks.get).toHaveBeenCalledWith(
+      `${API_ROUTES.transactions.root}?page=2&search=coffee+%26+cake&type=EXPENSE`,
+      { signal },
+    );
+  });
+
+  it("uses the shared retry policy and retains the previous page", () => {
+    const options = transactionsQueryOptions({ page: 2 });
+
+    expect(options.retry).toBe(mocks.retryApiQuery);
+    expect(options.placeholderData).toBe(keepPreviousData);
   });
 });

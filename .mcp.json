@@ -3,6 +3,12 @@
     "dbhub": {
       "type": "http",
       "url": "http://localhost:8080/mcp"
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"],
+      "env": {}
     }
   }
 }

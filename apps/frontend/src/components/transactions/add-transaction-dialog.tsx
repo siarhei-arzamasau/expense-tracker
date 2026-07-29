@@ -124,17 +124,19 @@ export function AddTransactionDialog({
         </Button>
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/45" />
-        <Dialog.Content className="bg-background fixed top-1/2 left-1/2 z-50 max-h-[90vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border p-6 shadow-xl focus:outline-none">
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[2px]" />
+        <Dialog.Content className="bg-background rounded-panel shadow-panel fixed top-1/2 left-1/2 z-50 max-h-[90vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto p-7 focus:outline-none">
           <div className="pr-10">
-            <Dialog.Title className="text-lg font-semibold">Add transaction</Dialog.Title>
-            <Dialog.Description className="text-muted-foreground mt-1 text-sm">
+            <Dialog.Title className="font-display text-xl font-semibold tracking-tight">
+              Add transaction
+            </Dialog.Title>
+            <Dialog.Description className="text-muted-foreground mt-1.5 text-sm">
               Record income or an expense in your account.
             </Dialog.Description>
           </div>
           <Dialog.Close asChild>
             <Button
-              className="absolute top-4 right-4"
+              className="absolute top-5 right-5"
               size="icon-sm"
               variant="ghost"
               aria-label="Close dialog"
@@ -144,30 +146,30 @@ export function AddTransactionDialog({
           </Dialog.Close>
 
           {!hasCategories && (
-            <div className="border-border bg-muted/40 mt-5 rounded-lg border p-4 text-sm">
+            <div className="bg-secondary mt-6 rounded-2xl p-4 text-sm">
               <p>You need a category before you can add a transaction.</p>
               <Link
                 href="/categories"
-                className="mt-2 inline-block font-medium underline underline-offset-4"
+                className="mt-2 inline-block font-semibold underline underline-offset-4"
               >
                 Create a category
               </Link>
             </div>
           )}
 
-          <form className="mt-5 space-y-4" onSubmit={handleSubmit(submit)} noValidate>
+          <form className="mt-6 space-y-4" onSubmit={handleSubmit(submit)} noValidate>
             <div className="grid grid-cols-2 gap-4">
-              <label className="space-y-1.5 text-sm font-medium">
+              <label className="space-y-2 text-[0.8125rem] font-semibold">
                 <span>Type</span>
                 <select
                   {...register("type")}
-                  className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                  className="bg-secondary focus-visible:bg-background focus-visible:ring-ring/15 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
                 >
                   <option value="EXPENSE">Expense</option>
                   <option value="INCOME">Income</option>
                 </select>
               </label>
-              <label className="space-y-1.5 text-sm font-medium">
+              <label className="space-y-2 text-[0.8125rem] font-semibold">
                 <span>Amount</span>
                 <Input
                   type="text"
@@ -177,18 +179,20 @@ export function AddTransactionDialog({
                   {...register("amount")}
                 />
                 {errors.amount && (
-                  <span className="text-destructive block text-xs">{errors.amount.message}</span>
+                  <span className="text-destructive block text-xs font-medium">
+                    {errors.amount.message}
+                  </span>
                 )}
               </label>
             </div>
 
-            <label className="block space-y-1.5 text-sm font-medium">
+            <label className="block space-y-2 text-[0.8125rem] font-semibold">
               <span>Category</span>
               <select
                 {...register("categoryId")}
                 disabled={!hasCategories}
                 aria-invalid={!!errors.categoryId}
-                className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm disabled:opacity-50"
+                className="bg-secondary focus-visible:bg-background focus-visible:ring-ring/15 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px] disabled:opacity-45"
               >
                 {!hasCategories && <option value="">No categories available</option>}
                 {categories.map((category) => (
@@ -203,7 +207,7 @@ export function AddTransactionDialog({
               )}
             </label>
 
-            <label className="block space-y-1.5 text-sm font-medium">
+            <label className="block space-y-2 text-[0.8125rem] font-semibold">
               <span>Date</span>
               <Input type="date" aria-invalid={!!errors.date} {...register("date")} />
               {errors.date && (
@@ -211,7 +215,7 @@ export function AddTransactionDialog({
               )}
             </label>
 
-            <label className="block space-y-1.5 text-sm font-medium">
+            <label className="block space-y-2 text-[0.8125rem] font-semibold">
               <span>
                 Description <span className="text-muted-foreground font-normal">(optional)</span>
               </span>

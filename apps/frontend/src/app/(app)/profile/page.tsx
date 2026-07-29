@@ -135,9 +135,9 @@ export default function ProfilePage() {
 
   if (isUserPending) {
     return (
-      <main className="mx-auto w-full max-w-3xl px-6 py-10" aria-busy="true">
-        <div className="bg-muted h-8 w-36 animate-pulse rounded" />
-        <div className="bg-muted mt-8 h-64 animate-pulse rounded-xl" />
+      <main className="w-full max-w-3xl px-5 py-7 sm:px-7 lg:px-9 lg:py-9" aria-busy="true">
+        <div className="bg-secondary h-8 w-36 animate-pulse rounded-full" />
+        <div className="bg-secondary rounded-panel mt-8 h-64 animate-pulse" />
         <span className="sr-only">Loading profile</span>
       </main>
     );
@@ -145,7 +145,7 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <main className="mx-auto w-full max-w-3xl px-6 py-10">
+      <main className="w-full max-w-3xl px-5 py-7 sm:px-7 lg:px-9 lg:py-9">
         {userError && !(userError instanceof ApiError && userError.isUnauthorized) && (
           <Alert variant="destructive">
             <AlertDescription>
@@ -158,15 +158,16 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-8 px-6 py-10">
+    <main className="w-full max-w-3xl space-y-6 px-5 py-7 sm:px-7 lg:px-9 lg:py-9">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <p className="eyebrow">Account</p>
+          <h1 className="mt-2 text-[1.75rem] leading-none font-bold">Profile</h1>
+          <p className="text-muted-foreground mt-2.5 text-sm">
             Manage your account details and security.
           </p>
         </div>
-        <Button type="button" variant="outline" onClick={logout}>
+        <Button type="button" variant="secondary" onClick={logout}>
           Log out
         </Button>
       </header>
@@ -217,7 +218,7 @@ export default function ProfilePage() {
                 </Alert>
               )}
               {profileMutation.isSuccess && (
-                <p className="text-sm text-emerald-700" role="status">
+                <p className="text-income-ink text-[0.8125rem] font-medium" role="status">
                   Profile updated.
                 </p>
               )}
@@ -291,7 +292,7 @@ export default function ProfilePage() {
                 </Alert>
               )}
               {passwordMutation.isSuccess && (
-                <p className="text-sm text-emerald-700" role="status">
+                <p className="text-income-ink text-[0.8125rem] font-medium" role="status">
                   Password changed.
                 </p>
               )}
@@ -303,7 +304,7 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card className="border-destructive/40">
+      <Card className="border-destructive/25 border">
         <CardHeader>
           <CardTitle>Delete account</CardTitle>
           <CardDescription>

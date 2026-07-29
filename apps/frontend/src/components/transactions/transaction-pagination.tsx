@@ -28,8 +28,11 @@ export function TransactionPagination({
         <ChevronLeft aria-hidden />
         Previous
       </Button>
-      <p className="text-muted-foreground text-sm" aria-live="polite">
-        Page <span className="text-foreground font-medium">{page}</span> of {totalPages}
+      <p
+        className="bg-secondary text-muted-foreground rounded-full px-3.5 py-1.5 text-[0.8125rem] tabular-nums"
+        aria-live="polite"
+      >
+        Page <span className="text-foreground font-semibold">{page}</span> of {totalPages}
       </p>
       <Button
         type="button"

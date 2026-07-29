@@ -58,7 +58,10 @@ describe("ProfilePage", () => {
     const { setQueryData, user } = renderWithQuery(<ProfilePage />);
     const name = await screen.findByLabelText("Name");
 
-    expect(name).toHaveValue("Demo User");
+    // Waiting on the value, not on the field: the inputs mount empty and are
+    // filled by the effect that answers GET /auth/me, so `findByLabelText`
+    // resolves one render too early and asserting straight off it is a race.
+    await waitFor(() => expect(name).toHaveValue("Demo User"));
     expect(screen.getByLabelText("Email")).toHaveValue("demo@example.com");
     await user.clear(name);
     await user.click(screen.getByRole("button", { name: "Save changes" }));

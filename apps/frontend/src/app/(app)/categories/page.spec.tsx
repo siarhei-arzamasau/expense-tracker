@@ -70,9 +70,13 @@ function renderPage() {
   return { invalidateQueries, user: userEvent.setup() };
 }
 
-/** The row card for one category, used to scope queries to a single entry. */
+/**
+ * The row card for one category, used to scope queries to a single entry.
+ * Anchored on `data-slot` rather than on a Tailwind class: the row's styling is
+ * free to change, its identity is not.
+ */
 function rowFor(name: string): HTMLElement {
-  return screen.getByText(name).closest("div.border-border") as HTMLElement;
+  return screen.getByText(name).closest("[data-slot=category-row]") as HTMLElement;
 }
 
 /**

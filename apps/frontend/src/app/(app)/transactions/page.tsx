@@ -56,11 +56,12 @@ function TransactionsPageContent() {
   const hasFilters = hasActiveFilters(query);
 
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <main className="space-y-7 px-5 py-7 sm:px-7 lg:px-9 lg:py-9">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <p className="eyebrow">History</p>
+          <h1 className="mt-2 text-[1.75rem] leading-none font-bold">Transactions</h1>
+          <p className="text-muted-foreground mt-2.5 text-sm">
             Search and filter your complete transaction history.
           </p>
         </div>
@@ -68,26 +69,27 @@ function TransactionsPageContent() {
       </header>
 
       <section
-        className="bg-card border-border rounded-xl border p-4 sm:p-6"
+        className="bg-secondary/60 rounded-2xl p-4 sm:p-5"
         aria-labelledby="transaction-filters-heading"
       >
         <h2 id="transaction-filters-heading" className="sr-only">
           Transaction filters
         </h2>
         <form
-          className="grid gap-4 lg:grid-cols-[minmax(16rem,1fr)_12rem_14rem_auto] lg:items-end"
+          className="grid gap-4 lg:grid-cols-[minmax(15rem,1fr)_11rem_13rem_auto] lg:items-end"
           onSubmit={(event) => {
             event.preventDefault();
             const formData = new FormData(event.currentTarget);
             updateFilters({ search: String(formData.get("search") ?? "").trim(), page: 1 });
           }}
         >
-          <label className="space-y-1.5 text-sm font-medium">
+          <label className="space-y-2 text-[0.8125rem] font-semibold">
             <span>Search descriptions</span>
             <span className="relative block">
               <Search
                 aria-hidden
-                className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2"
+                className="text-muted-foreground absolute top-1/2 left-4 size-4 -translate-y-1/2"
+                strokeWidth={1.75}
               />
               <input
                 key={search}
@@ -95,19 +97,19 @@ function TransactionsPageContent() {
                 type="search"
                 defaultValue={search}
                 placeholder="e.g. groceries"
-                className="border-input bg-background h-9 w-full rounded-md border pr-3 pl-9 text-sm"
+                className="bg-background placeholder:text-muted-foreground/80 focus-visible:ring-ring/15 h-10 w-full rounded-full border border-transparent pr-4 pl-10 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
               />
             </span>
           </label>
 
-          <label className="space-y-1.5 text-sm font-medium">
+          <label className="space-y-2 text-[0.8125rem] font-semibold">
             <span>Type</span>
             <select
               value={type ?? ""}
               onChange={(event) =>
                 updateFilters({ type: event.target.value || undefined, page: 1 })
               }
-              className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+              className="bg-background focus-visible:ring-ring/15 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
             >
               <option value="">All types</option>
               <option value="INCOME">Income</option>
@@ -115,14 +117,14 @@ function TransactionsPageContent() {
             </select>
           </label>
 
-          <label className="space-y-1.5 text-sm font-medium">
+          <label className="space-y-2 text-[0.8125rem] font-semibold">
             <span>Category</span>
             <select
               value={categoryId ?? ""}
               onChange={(event) =>
                 updateFilters({ categoryId: event.target.value || undefined, page: 1 })
               }
-              className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+              className="bg-background focus-visible:ring-ring/15 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
             >
               <option value="">All categories</option>
               {categoriesQuery.data?.map((category) => (
@@ -135,9 +137,7 @@ function TransactionsPageContent() {
           </label>
 
           <div className="flex gap-2">
-            <Button type="submit" variant="outline">
-              Search
-            </Button>
+            <Button type="submit">Search</Button>
             {hasFilters && (
               <Button
                 type="button"
@@ -154,12 +154,9 @@ function TransactionsPageContent() {
         </form>
       </section>
 
-      <section
-        className="bg-card border-border rounded-xl border p-4 sm:p-6"
-        aria-labelledby="transaction-list-heading"
-      >
+      <section aria-labelledby="transaction-list-heading">
         <div className="mb-5">
-          <h2 id="transaction-list-heading" className="text-lg font-semibold">
+          <h2 id="transaction-list-heading" className="text-xl font-semibold">
             Transaction history
           </h2>
           {transactionsQuery.data && (
@@ -183,7 +180,7 @@ function TransactionsPageContent() {
         />
 
         {transactionsQuery.data && transactionsQuery.data.totalPages > 1 && (
-          <div className="border-border mt-5 border-t pt-5">
+          <div className="mt-6">
             <TransactionPagination
               page={transactionsQuery.data.page}
               totalPages={transactionsQuery.data.totalPages}

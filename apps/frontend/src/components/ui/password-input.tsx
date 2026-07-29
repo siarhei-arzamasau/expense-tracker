@@ -17,7 +17,7 @@ function PasswordInput({ className, ...props }: Omit<React.ComponentProps<typeof
 
   return (
     <div className="relative">
-      <Input type={visible ? "text" : "password"} className={cn("pr-9", className)} {...props} />
+      <Input type={visible ? "text" : "password"} className={cn("pr-11", className)} {...props} />
       {/* The accessible name names the action and changes with state; no
           aria-pressed alongside it, since a toggle that flips both its label
           and its pressed state is announced twice and reads as contradictory. */}
@@ -26,7 +26,7 @@ function PasswordInput({ className, ...props }: Omit<React.ComponentProps<typeof
         onClick={() => setVisible((current) => !current)}
         disabled={props.disabled}
         aria-label={visible ? "Hide password" : "Show password"}
-        className="absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-md text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
+        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/25 absolute inset-y-1 right-1 flex w-9 items-center justify-center rounded-full transition-colors outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-45"
       >
         <Icon className="size-4" aria-hidden="true" />
       </button>

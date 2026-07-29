@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownRight, ArrowUpRight, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   AddTransactionAction,
@@ -12,46 +12,130 @@ import {
 } from "@/components/transactions";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
-import { formatAmount } from "@/lib/format";
+import { flowShares, formatAmount, formatShare } from "@/lib/format";
 import {
   transactionsQueryOptions,
   transactionSummaryQueryOptions,
 } from "@/lib/queries/transactions";
+
+type Tone = "balance" | "income" | "expense";
+
+const TONE_CLASSES: Record<Tone, { surface: string; ink: string; track: string; fill: string }> = {
+  balance: {
+    surface: "bg-balance",
+    ink: "text-balance-ink",
+    track: "bg-balance-ink/12",
+    fill: "bg-balance-ink",
+  },
+  income: {
+    surface: "bg-income",
+    ink: "text-income-ink",
+    track: "bg-income-ink/12",
+    fill: "bg-income-ink",
+  },
+  expense: {
+    surface: "bg-expense",
+    ink: "text-expense-ink",
+    track: "bg-expense-ink/12",
+    fill: "bg-expense-ink",
+  },
+};
 
 interface SummaryCardProps {
   label: string;
   amount?: string;
   isPending: boolean;
   icon: typeof Wallet;
-  tone?: "default" | "income" | "expense";
+  tone: Tone;
+  children?: ReactNode;
 }
 
-function SummaryCard({ label, amount, isPending, icon: Icon, tone = "default" }: SummaryCardProps) {
-  const toneClass =
-    tone === "income"
-      ? "text-emerald-700 bg-emerald-50"
-      : tone === "expense"
-        ? "text-rose-700 bg-rose-50"
-        : "text-foreground bg-secondary";
+/**
+ * A pastel tile with an ink-filled marker, a display-face figure, and a bar
+ * underneath. The bar is drawn from the month's own totals — it is the figure's
+ * share of everything that moved — so it carries information rather than
+ * decorating the card with a shape.
+ */
+function SummaryCard({ label, amount, isPending, icon: Icon, tone, children }: SummaryCardProps) {
+  const classes = TONE_CLASSES[tone];
 
   return (
-    <div className="bg-card border-border rounded-xl border p-5">
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-muted-foreground text-sm font-medium">{label}</p>
-        <span className={`flex size-9 items-center justify-center rounded-full ${toneClass}`}>
-          <Icon aria-hidden className="size-4" />
+    <div className={`${classes.surface} rounded-2xl p-5 sm:p-6`}>
+      <div className="flex items-start justify-between gap-4">
+        <span className="bg-primary text-primary-foreground flex size-11 items-center justify-center rounded-xl">
+          <Icon aria-hidden className="size-5" strokeWidth={1.75} />
         </span>
+        <p className={`eyebrow ${classes.ink} pt-1.5`}>{label}</p>
       </div>
+
       {isPending ? (
-        <div className="bg-muted mt-4 h-8 w-32 animate-pulse rounded" />
+        <div className="bg-primary/8 mt-6 h-9 w-36 animate-pulse rounded-lg" />
       ) : amount === undefined ? (
-        <p className="text-muted-foreground mt-3 text-sm">Unavailable</p>
+        <p className={`${classes.ink} mt-6 text-sm font-medium opacity-70`}>Unavailable</p>
       ) : (
-        <p className="mt-3 text-2xl font-semibold tracking-tight tabular-nums">
+        <p className="font-display mt-6 text-[1.75rem] leading-none font-bold tracking-tight tabular-nums sm:text-[2rem]">
           {formatAmount(amount)}
         </p>
       )}
+
+      <div className="mt-5">{children}</div>
     </div>
+  );
+}
+
+/** A single filled segment of the month's flow. */
+function ShareBar({ tone, share, caption }: { tone: Tone; share: number; caption: string }) {
+  const classes = TONE_CLASSES[tone];
+
+  return (
+    <>
+      <div className={`${classes.track} h-1.5 overflow-hidden rounded-full`} aria-hidden>
+        <div
+          className={`${classes.fill} h-full rounded-full transition-[width] duration-700 ease-out`}
+          style={{ width: `${share * 100}%` }}
+        />
+      </div>
+      <p className={`${classes.ink} mt-2.5 text-xs font-medium`}>{caption}</p>
+    </>
+  );
+}
+
+/** Both halves of the month on one track, which is what a balance is made of. */
+function SplitBar({ income, expense }: { income: number; expense: number }) {
+  const empty = income === 0 && expense === 0;
+
+  return (
+    <>
+      <div
+        className="bg-balance-ink/12 flex h-1.5 gap-0.5 overflow-hidden rounded-full"
+        aria-hidden
+      >
+        <div
+          className="bg-income-ink h-full rounded-full transition-[width] duration-700 ease-out"
+          style={{ width: `${income * 100}%` }}
+        />
+        <div
+          className="bg-expense-ink h-full rounded-full transition-[width] duration-700 ease-out"
+          style={{ width: `${expense * 100}%` }}
+        />
+      </div>
+      <p className="text-balance-ink mt-2.5 flex items-center gap-3 text-xs font-medium">
+        {empty ? (
+          "Nothing recorded yet"
+        ) : (
+          <>
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden className="bg-income-ink size-1.5 rounded-full" />
+              {formatShare(income)} in
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden className="bg-expense-ink size-1.5 rounded-full" />
+              {formatShare(expense)} out
+            </span>
+          </>
+        )}
+      </p>
+    </>
   );
 }
 
@@ -77,14 +161,18 @@ export default function DashboardPage() {
     setPage(totalPages);
   }
 
+  const summary = summaryQuery.data;
+  const shares = summary ? flowShares(summary.income, summary.expense) : { income: 0, expense: 0 };
+  const hasFlow = shares.income > 0 || shares.expense > 0;
+
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+    <main className="space-y-8 px-5 py-7 sm:px-7 lg:px-9 lg:py-9">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-muted-foreground text-sm font-medium">{monthLabel}</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Your monthly totals and latest activity at a glance.
+          <p className="eyebrow">{monthLabel}</p>
+          <h1 className="mt-2 text-[1.75rem] leading-none font-bold">Dashboard</h1>
+          <p className="text-muted-foreground mt-2.5 text-sm">
+            Where your money went this month, and what landed most recently.
           </p>
         </div>
         <AddTransactionAction />
@@ -93,7 +181,7 @@ export default function DashboardPage() {
       <section aria-label={`Financial summary for ${monthLabel}`}>
         {summaryQuery.error &&
           !(summaryQuery.error instanceof ApiError && summaryQuery.error.isUnauthorized) && (
-            <div className="border-destructive/40 bg-destructive/5 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+            <div className="bg-destructive/8 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
               <p className="text-destructive text-sm">
                 {summaryQuery.error instanceof ApiError
                   ? summaryQuery.error.message
@@ -109,37 +197,53 @@ export default function DashboardPage() {
               </Button>
             </div>
           )}
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3">
           <SummaryCard
             label="Balance"
-            amount={summaryQuery.data?.balance}
+            amount={summary?.balance}
             isPending={summaryQuery.isPending}
             icon={Wallet}
-          />
+            tone="balance"
+          >
+            <SplitBar income={shares.income} expense={shares.expense} />
+          </SummaryCard>
           <SummaryCard
             label="Income"
-            amount={summaryQuery.data?.income}
+            amount={summary?.income}
             isPending={summaryQuery.isPending}
             icon={ArrowUpRight}
             tone="income"
-          />
+          >
+            <ShareBar
+              tone="income"
+              share={shares.income}
+              caption={
+                hasFlow ? `${formatShare(shares.income)} of the month's flow` : "Nothing in yet"
+              }
+            />
+          </SummaryCard>
           <SummaryCard
             label="Expenses"
-            amount={summaryQuery.data?.expense}
+            amount={summary?.expense}
             isPending={summaryQuery.isPending}
             icon={ArrowDownRight}
             tone="expense"
-          />
+          >
+            <ShareBar
+              tone="expense"
+              share={shares.expense}
+              caption={
+                hasFlow ? `${formatShare(shares.expense)} of the month's flow` : "Nothing out yet"
+              }
+            />
+          </SummaryCard>
         </div>
       </section>
 
-      <section
-        className="bg-card border-border rounded-xl border p-4 sm:p-6"
-        aria-labelledby="recent-transactions-heading"
-      >
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <section aria-labelledby="recent-transactions-heading">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 id="recent-transactions-heading" className="text-lg font-semibold">
+            <h2 id="recent-transactions-heading" className="text-xl font-semibold">
               Recent transactions
             </h2>
             {transactionsQuery.data && (
@@ -148,9 +252,9 @@ export default function DashboardPage() {
               </p>
             )}
           </div>
-          <Link href="/transactions" className="text-sm font-medium underline underline-offset-4">
-            View and filter all
-          </Link>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/transactions">View and filter all</Link>
+          </Button>
         </div>
 
         <TransactionList
@@ -162,7 +266,7 @@ export default function DashboardPage() {
         />
 
         {transactionsQuery.data && transactionsQuery.data.totalPages > 1 && (
-          <div className="border-border mt-5 border-t pt-5">
+          <div className="mt-6">
             <TransactionPagination
               page={transactionsQuery.data.page}
               totalPages={transactionsQuery.data.totalPages}

@@ -314,14 +314,18 @@ export default function CategoriesPage() {
                 >
                   {category.icon ?? "•"}
                 </span>
-                <div className="min-w-0 flex-1">
+                {/* basis-28 is what makes the wrap land on the buttons rather than
+                    on this column: without it the row keeps every child on one
+                    line and squeezes the text to ~86px, which splits "2
+                    transactions" across two lines at 390px. */}
+                <div className="min-w-0 flex-1 basis-28">
                   <p className="truncate font-semibold">{category.name}</p>
                   <p className="text-muted-foreground mt-0.5 text-[0.8125rem]">
                     {category.transactionCount}{" "}
                     {category.transactionCount === 1 ? "transaction" : "transactions"}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="ml-auto flex gap-2">
                   <Button
                     type="button"
                     size="sm"

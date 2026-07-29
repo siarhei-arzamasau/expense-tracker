@@ -338,12 +338,13 @@ application bootstrap; `compile()` alone does not populate the buses.
 ### Frontend
 
 - Runner: Vitest.
-- Current coverage focuses on pure functions under `src/lib`.
-- The environment is Node, not jsdom.
-- There is no Testing Library setup for component tests.
+- Pure functions under `src/lib` are `*.spec.ts` and run in the default Node environment.
+- Component tests are `*.spec.tsx` beside the component, using React Testing Library and jsdom.
+- A component spec opts into jsdom with a `// @vitest-environment jsdom` docblock on its first line.
 
-Introducing component tests requires an explicit testing-environment decision rather than an
-incidental dependency addition.
+Omitting that docblock fails the spec with `document is not defined`; it does not silently skip.
+`vitest.setup.ts` provides the `@testing-library/jest-dom` matchers and `afterEach(cleanup)`, which
+React Testing Library does not register on its own while Vitest globals are off.
 
 ### Verification sequence
 

@@ -21,8 +21,17 @@ pnpm --filter @expense-tracker/frontend exec vitest transaction-filters  # by fi
 **The frontend is Vitest**, because it is ESM and uses the Next.js `@/*` alias, which
 `vitest.config.ts` re-declares. The backend uses Jest instead — that split is on purpose, not drift.
 
-Coverage is scoped to `src/lib/**/*.spec.ts` — pure functions, `environment: "node"`, no DOM. There
-is no jsdom and no testing-library; adding component tests is a deliberate decision, not a drive-by.
+Two kinds of spec live here, and `vitest.config.ts` collects both from `src/**`. Pure functions under
+`src/lib` stay on the default `environment: "node"`. Component specs are `*.spec.tsx` beside the
+component and opt into jsdom per file with a `// @vitest-environment jsdom` docblock on the first
+line — omit it and the spec fails with `document is not defined` rather than skipping quietly.
+
+Two settings in that config are load-bearing. `oxc.jsx` must be set because the Next.js tsconfig says
+`jsx: "preserve"`, which Vite refuses to parse ("content contains invalid JS syntax"); it belongs
+under `oxc` rather than `esbuild`, since Vite 8 announces that it is ignoring the esbuild half. And
+`vitest.setup.ts` registers the `@testing-library/jest-dom` matchers plus `afterEach(cleanup)`,
+because React Testing Library only auto-cleans when Vitest runs with `globals: true` and this project
+keeps globals off.
 
 `pnpm dev` serves the app on :3000 against the backend on :3001.
 

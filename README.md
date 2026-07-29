@@ -250,6 +250,25 @@ pnpm --filter @expense-tracker/frontend build
 The root `pnpm test` command intentionally excludes backend end-to-end tests because they require a
 live PostgreSQL database.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request targeting `main` and on every push to `main`.
+It has two jobs, so a failure points at one half of the suite rather than the whole run:
+
+| Job                         | Commands                                           |
+| --------------------------- | -------------------------------------------------- |
+| **Lint and static quality** | `pnpm format:check`, `pnpm lint`, `pnpm typecheck` |
+| **Tests and build**         | `pnpm test`, `pnpm build`                          |
+
+Both jobs use the pinned Node version from `.nvmrc` and the pinned pnpm version from
+`package.json`, install with `pnpm install --frozen-lockfile`, and need no repository secrets. A
+placeholder `DATABASE_URL` is set at the workflow level because `prisma generate` requires the
+variable to resolve; no database is contacted, and no PostgreSQL service runs. Backend end-to-end
+tests are therefore excluded from CI for the same reason they are excluded from `pnpm test`.
+
+Note that `oxfmt` formats YAML, so the lint job checks the workflow file itself. Run
+`pnpm format:check` before pushing changes to `.github/workflows`.
+
 ## Production-style local run
 
 Build all workspaces, apply existing migrations, and run the applications in separate terminals:

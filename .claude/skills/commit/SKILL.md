@@ -40,7 +40,7 @@ Use GitHub Flow for all repository changes:
 - Name branches `<type>/<short-kebab-case-description>`, using `feature`, `fix`, `docs`, `refactor`, `test`, or `chore` as the type; for example, `feature/frontend-homepage`.
 - Keep each branch focused on one coherent change. Bring `main` into the branch before merging when needed to resolve divergence.
 - Merge into `main` through a pull request only after the relevant checks pass and review is complete. Delete the branch after merge.
-- "Checks pass" means checks you ran. `.github/workflows` holds Claude's review and PR-assistant workflows and nothing else — no job runs `typecheck`, `lint`, or `test` on a branch, so run them locally and never describe a merge as gated on CI that does not exist.
+- "Checks pass" means checks that actually ran. `.github/workflows/ci.yml` runs `format:check`, `lint`, `typecheck`, `test`, and `build` on every pull request into `main`, so a merge can legitimately be described as gated on CI. It does not run backend e2e, which still has to be run locally when persistence or HTTP composition changed. Run the relevant checks locally before pushing regardless — CI is the second opinion, not the first.
 - Do not introduce a `develop` branch or other long-lived integration branches unless the repository workflow is explicitly changed.
 
 ## Git commits

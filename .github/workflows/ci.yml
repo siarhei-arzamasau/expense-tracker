@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Never cancel a run on main: its result is the record for that commit.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # prisma.config.ts resolves DATABASE_URL eagerly via env(), so `prisma generate`
+  # aborts without it. No database is contacted during generation, so any well-formed
+  # URL works. Not a secret.
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+  # `pnpm install` runs the root `prepare` script; git hooks are pointless on a runner.
+  HUSKY: 0
+
+jobs:
+  lint:
+    name: Lint and static quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # pnpm must exist before setup-node, because `cache: pnpm` shells out to it
+      # to locate the store. The version comes from `packageManager` in package.json.
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+  test:
+    name: Tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Backend Jest and frontend Vitest only; backend e2e needs a migrated database
+      # and stays out of this gate.
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build

@@ -157,6 +157,31 @@ pnpm --filter @expense-tracker/frontend exec vitest transaction-filters
 Backend end-to-end tests boot the real application and require PostgreSQL to be running and
 migrated. Root `pnpm test` intentionally excludes them.
 
+### Continuous integration
+
+`.github/workflows/ci.yml` runs the same root commands on pull requests targeting `main` and on
+pushes to `main`, split into two jobs:
+
+| Job                         | Commands                                           |
+| --------------------------- | -------------------------------------------------- |
+| **Lint and static quality** | `pnpm format:check`, `pnpm lint`, `pnpm typecheck` |
+| **Tests and build**         | `pnpm test`, `pnpm build`                          |
+
+The job names are a repository-level contract once branch protection requires them. Renaming a job
+does not fail loudly — the old required check simply stops reporting and every pull request blocks
+on a check that no longer exists.
+
+Both jobs read Node from `.nvmrc` and pnpm from `packageManager` in `package.json`, install with
+`pnpm install --frozen-lockfile`, and require no repository secrets. The workflow sets a
+placeholder `DATABASE_URL` because `prisma generate` resolves that variable eagerly; both jobs need
+it, since `lint` and `test` both depend on `^build` and therefore on `db:generate`. Nothing
+connects to a database, and no PostgreSQL service is started, so backend end-to-end tests stay out
+of CI. Adding them later means a `services: postgres` block plus `pnpm db:deploy` in a separate
+job.
+
+`oxfmt` formats YAML, so the lint job checks the workflow file that is running it. Run
+`pnpm format:check` locally after editing anything under `.github/workflows`.
+
 ## Repository conventions
 
 ### Dependency direction

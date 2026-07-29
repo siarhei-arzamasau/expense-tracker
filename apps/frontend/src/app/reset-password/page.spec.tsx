@@ -76,4 +76,24 @@ describe("ResetPasswordPage", () => {
     expect(await screen.findByText("Passwords do not match")).toBeInTheDocument();
     expect(mocks.resetPassword).not.toHaveBeenCalled();
   });
+
+  // Both fields go through PasswordInput rather than a bare Input: this is the
+  // one form where the password being set cannot be checked anywhere else, and
+  // it was the last one in the app still missing the toggle.
+  it("reveals each password field on its own, not both at once", async () => {
+    mocks.token = "a".repeat(43);
+    const user = renderPage();
+
+    const newPassword = screen.getByLabelText("New password");
+    const confirmPassword = screen.getByLabelText("Confirm new password");
+    const toggles = screen.getAllByRole("button", { name: "Show password" });
+
+    expect(toggles).toHaveLength(2);
+    expect(newPassword).toHaveAttribute("type", "password");
+
+    await user.click(toggles[0]);
+
+    expect(newPassword).toHaveAttribute("type", "text");
+    expect(confirmPassword).toHaveAttribute("type", "password");
+  });
 });

@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
+import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
 import { authStorage } from "@/lib/auth-storage";
 import {
@@ -64,72 +65,79 @@ function CategoryForm({ category, error, isPending, onCancel, onSubmit }: Catego
 
   return (
     <form
-      className="border-border bg-card space-y-4 rounded-lg border p-4"
+      className="bg-secondary/60 space-y-5 rounded-2xl p-5"
       onSubmit={handleSubmit(onSubmit)}
       noValidate
     >
-      <div className="space-y-1.5">
-        <label htmlFor={`category-name-${category?.id ?? "new"}`} className="text-sm font-medium">
+      <div className="space-y-2">
+        <label
+          htmlFor={`category-name-${category?.id ?? "new"}`}
+          className="block text-[0.8125rem] font-semibold"
+        >
           Name
         </label>
         <input
           id={`category-name-${category?.id ?? "new"}`}
-          className="border-input w-full rounded-md border px-3 py-2 text-sm"
-          placeholder="Category name"
+          className="bg-background placeholder:text-muted-foreground/80 focus-visible:ring-ring/15 h-10 w-full rounded-full border border-transparent px-4 text-sm transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
+          placeholder="Groceries, Rent, Salary…"
           {...register("name")}
         />
-        {errors.name && <p className="text-destructive text-sm">{errors.name.message}</p>}
+        {errors.name && <p className="text-destructive text-[0.8125rem]">{errors.name.message}</p>}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <span className="text-sm font-medium">Color</span>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="space-y-2">
+          <span className="block text-[0.8125rem] font-semibold">Color</span>
           <div className="flex items-center gap-2">
             <input
               aria-label="Category color"
               type="color"
               value={color ?? "#64748b"}
               onChange={(event) => setValue("color", event.target.value, { shouldDirty: true })}
-              className="border-input h-9 w-12 cursor-pointer rounded border bg-transparent p-1"
+              className="bg-background size-10 shrink-0 cursor-pointer rounded-full border-4 border-white p-0.5 shadow-sm"
             />
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="secondary"
               onClick={() => setValue("color", null, { shouldDirty: true })}
-              className="border-border rounded-md border px-3 py-2 text-xs hover:bg-accent"
+              className="bg-background"
             >
               No color
-            </button>
+            </Button>
             {color === null && <span className="text-muted-foreground text-xs">None</span>}
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <span className="text-sm font-medium">Icon</span>
+        <div className="space-y-2">
+          <span className="block text-[0.8125rem] font-semibold">Icon</span>
           <div className="flex items-center gap-2">
             <button
               type="button"
               aria-expanded={pickerOpen}
               onClick={() => setPickerOpen((open) => !open)}
-              className="border-border min-w-12 rounded-md border px-3 py-2 text-lg hover:bg-accent"
+              className="bg-background focus-visible:ring-ring/25 flex size-10 shrink-0 items-center justify-center rounded-full text-lg shadow-sm transition-transform outline-none hover:scale-105 focus-visible:ring-[3px]"
             >
               {icon ?? "＋"}
             </button>
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="secondary"
+              className="bg-background"
               onClick={() => {
                 setValue("icon", null, { shouldDirty: true });
                 setPickerOpen(false);
               }}
-              className="border-border rounded-md border px-3 py-2 text-xs hover:bg-accent"
             >
               Remove icon
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
       {pickerOpen && (
-        <div className="max-w-full overflow-hidden rounded-lg">
+        <div className="max-w-full overflow-hidden rounded-2xl">
           <EmojiPicker
             emojiStyle={"native" as EmojiStyle}
             width="100%"
@@ -142,28 +150,20 @@ function CategoryForm({ category, error, isPending, onCancel, onSubmit }: Catego
       )}
 
       {error && (
-        <p className="text-destructive text-sm" role="alert">
+        <p className="text-destructive text-[0.8125rem]" role="alert">
           {error instanceof ApiError ? error.message : "Could not save category"}
         </p>
       )}
 
       <div className="flex justify-end gap-2">
         {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="border-border rounded-md border px-4 py-2 text-sm font-medium hover:bg-accent"
-          >
+          <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
-          </button>
+          </Button>
         )}
-        <button
-          type="submit"
-          disabled={isPending}
-          className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
-        >
+        <Button type="submit" disabled={isPending}>
           {isPending ? "Saving…" : category ? "Save changes" : "Add category"}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -238,21 +238,22 @@ export default function CategoriesPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-      <header className="mb-8 flex flex-wrap items-center justify-between gap-3">
+    <main className="px-5 py-7 sm:px-7 lg:px-9 lg:py-9">
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Categories</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <p className="eyebrow">Labels</p>
+          <h1 className="mt-2 text-[1.75rem] leading-none font-bold">Categories</h1>
+          <p className="text-muted-foreground mt-2.5 text-sm">
             Organize transactions with a name, color, and emoji.
           </p>
         </div>
-        <Link href="/transactions" className="text-sm font-medium underline underline-offset-4">
-          View transactions
-        </Link>
+        <Button asChild variant="secondary" size="sm">
+          <Link href="/transactions">View transactions</Link>
+        </Button>
       </header>
 
-      <section aria-labelledby="add-category-heading" className="mb-8 space-y-3">
-        <h2 id="add-category-heading" className="text-lg font-semibold">
+      <section aria-labelledby="add-category-heading" className="mb-9 max-w-2xl space-y-4">
+        <h2 id="add-category-heading" className="text-xl font-semibold">
           Add category
         </h2>
         <CategoryForm
@@ -263,24 +264,24 @@ export default function CategoriesPage() {
         />
       </section>
 
-      <section aria-labelledby="category-list-heading" className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <section aria-labelledby="category-list-heading" className="space-y-5">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 id="category-list-heading" className="text-lg font-semibold">
+            <h2 id="category-list-heading" className="text-xl font-semibold">
               Your categories
             </h2>
             {categories && (
-              <p className="text-muted-foreground text-sm">{categories.length} total</p>
+              <p className="text-muted-foreground mt-1 text-sm">{categories.length} total</p>
             )}
           </div>
-          <label className="space-y-1 text-sm">
-            <span className="font-medium">Search</span>
+          <label className="space-y-2 text-[0.8125rem] font-semibold">
+            <span className="block">Search</span>
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search by name"
-              className="border-input block rounded-md border px-3 py-2 text-sm"
+              className="bg-secondary placeholder:text-muted-foreground/80 focus-visible:bg-background focus-visible:ring-ring/15 h-10 w-56 rounded-full border border-transparent px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
             />
           </label>
         </div>
@@ -292,43 +293,54 @@ export default function CategoriesPage() {
           </p>
         )}
         {categories && filteredCategories.length === 0 && (
-          <p className="text-muted-foreground text-sm">
-            {search ? "No categories match your search." : "No categories yet."}
-          </p>
+          <div className="bg-secondary/60 rounded-2xl px-6 py-14 text-center">
+            <p className="text-muted-foreground text-sm">
+              {search ? "No categories match your search." : "No categories yet."}
+            </p>
+          </div>
         )}
 
         <div className="space-y-3">
           {filteredCategories.map((category) => (
             <div key={category.id} className="space-y-3">
-              <div className="border-border flex flex-wrap items-center gap-3 rounded-lg border p-4">
+              <div
+                data-slot="category-row"
+                className="bg-secondary/60 flex flex-wrap items-center gap-4 rounded-2xl p-4"
+              >
                 <span
                   aria-hidden
-                  className="flex size-10 items-center justify-center rounded-full text-xl"
+                  className="flex size-12 shrink-0 items-center justify-center rounded-2xl text-xl"
                   style={{ backgroundColor: category.color ?? "var(--muted)" }}
                 >
                   {category.icon ?? "•"}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{category.name}</p>
-                  <p className="text-muted-foreground text-sm">
+                  <p className="truncate font-semibold">{category.name}</p>
+                  <p className="text-muted-foreground mt-0.5 text-[0.8125rem]">
                     {category.transactionCount}{" "}
                     {category.transactionCount === 1 ? "transaction" : "transactions"}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setEditing(category)}
-                  className="border-border rounded-md border px-3 py-2 text-sm hover:bg-accent"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeleting(category)}
-                  className="text-destructive border-border rounded-md border px-3 py-2 text-sm hover:bg-accent"
-                >
-                  Delete
-                </button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="bg-background"
+                    onClick={() => setEditing(category)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="hover:text-destructive"
+                    onClick={() => setDeleting(category)}
+                  >
+                    Delete
+                  </Button>
+                </div>
               </div>
               {editing?.id === category.id && (
                 <CategoryForm
@@ -346,16 +358,16 @@ export default function CategoriesPage() {
 
       {deleting && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-[2px]"
           role="presentation"
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-category-title"
-            className="bg-background w-full max-w-md space-y-4 rounded-lg p-6 shadow-xl"
+            className="bg-background rounded-panel shadow-panel w-full max-w-md space-y-4 p-7"
           >
-            <h2 id="delete-category-title" className="text-lg font-semibold">
+            <h2 id="delete-category-title" className="text-xl font-semibold">
               Delete {deleting.name}?
             </h2>
             <p className="text-muted-foreground text-sm">
@@ -364,29 +376,29 @@ export default function CategoriesPage() {
                 : "This category has no transactions and can be safely deleted."}
             </p>
             {deleteMutation.error && (
-              <p className="text-destructive text-sm" role="alert">
+              <p className="text-destructive text-[0.8125rem]" role="alert">
                 {deleteMutation.error instanceof ApiError
                   ? deleteMutation.error.message
                   : "Could not delete category"}
               </p>
             )}
-            <div className="flex justify-end gap-2">
-              <button
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => setDeleting(null)}
                 disabled={deleteMutation.isPending}
-                className="border-border rounded-md border px-4 py-2 text-sm font-medium"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="destructive"
                 onClick={() => deleteMutation.mutate(deleting.id)}
                 disabled={deleteMutation.isPending}
-                className="bg-destructive text-destructive-foreground rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
               >
                 {deleteMutation.isPending ? "Deleting…" : "Delete category"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

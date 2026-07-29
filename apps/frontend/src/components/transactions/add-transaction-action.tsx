@@ -24,7 +24,7 @@ export function AddTransactionAction() {
   if (categoriesQuery.isPending) {
     return (
       <div
-        className="bg-muted h-9 w-36 animate-pulse rounded-md"
+        className="bg-secondary h-10 w-40 animate-pulse rounded-full"
         aria-label="Loading transaction categories"
       />
     );

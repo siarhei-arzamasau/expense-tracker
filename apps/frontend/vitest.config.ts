@@ -19,6 +19,11 @@ import { defineConfig } from "vitest/config";
  * syntax ... make sure to not set jsx to preserve". It belongs under `oxc`
  * rather than `esbuild`: setting both makes Vite announce that it is ignoring
  * the esbuild half.
+ *
+ * `next/font/google` is aliased for the same class of reason: it is a compiler
+ * transform, not a runtime module, and importing it outside a Next build throws
+ * "next/font requires SWC". `vitest.next-font.ts` returns the shape the root
+ * layout consumes.
  */
 export default defineConfig({
   test: {
@@ -30,6 +35,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "next/font/google": fileURLToPath(new URL("./vitest.next-font.ts", import.meta.url)),
     },
   },
 });

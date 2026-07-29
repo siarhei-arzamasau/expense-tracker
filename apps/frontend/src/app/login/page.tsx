@@ -3,10 +3,11 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
+import { AuthBrand } from "@/components/auth/auth-brand";
 import { LoginForm } from "@/components/auth/login-form";
 import { RegisterForm } from "@/components/auth/register-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // The active tab still lives in useState rather than the URL — reading it
@@ -19,9 +20,6 @@ function LoginPageContent() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-2xl">Expense Tracker</CardTitle>
-      </CardHeader>
       <CardContent className="space-y-4">
         {resetSucceeded && (
           <Alert>
@@ -44,10 +42,10 @@ function LoginPageContent() {
               stacked on top of each other. display:none (not visibility or
               opacity) is what keeps the hidden form out of the tab order and
               the accessibility tree while its React state survives. */}
-          <TabsContent value="login" className="pt-4 data-[state=inactive]:hidden" forceMount>
+          <TabsContent value="login" className="pt-5 data-[state=inactive]:hidden" forceMount>
             <LoginForm />
           </TabsContent>
-          <TabsContent value="register" className="pt-4 data-[state=inactive]:hidden" forceMount>
+          <TabsContent value="register" className="pt-5 data-[state=inactive]:hidden" forceMount>
             <RegisterForm />
           </TabsContent>
         </Tabs>
@@ -58,7 +56,8 @@ function LoginPageContent() {
 
 export default function LoginPage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-12">
+      <AuthBrand tagline="Log in to see where the money went, or create an account to start." />
       <Suspense fallback={null}>
         <LoginPageContent />
       </Suspense>

@@ -47,16 +47,51 @@ lets it stay CommonJS.
 are not mirrored here.
 
 **Money arrives as a `string` and is parsed only at the display boundary**
-(`src/lib/format.ts`). Arithmetic on it anywhere else silently produces wrong money.
+(`src/lib/format.ts`). Arithmetic on it anywhere else silently produces wrong money. This is why the
+dashboard's summary bars are drawn from `flowShares()` in that file rather than from a ratio computed
+in the page — a `Number()` call in a component is one the next person reuses for a figure that really
+is shown as currency.
+
+## Design system
+
+**The visual language lives in `src/app/globals.css` and nowhere else.** A warm paper canvas, white
+panels floating on it, three pastel tints that carry the money semantics, and one near-black ink
+spent sparingly — on the primary button, the sidebar account card, and the icon badges.
+
+- **The tokens are the shadcn/ui names repointed at this palette**, so `shadcn add <component>` still
+  produces something that matches. Reach for `bg-card`, `text-muted-foreground`, `bg-secondary`
+  rather than a literal colour; a hex in a component is a bug.
+- **The money tints are semantic, not decorative.** `income` / `balance` / `expense` and their
+  `-ink` foregrounds mean exactly what they are named, and each pastel-and-ink pair is picked to
+  clear 4.5:1. Do not reuse `bg-expense` because it is a nice orange.
+- **Two faces, two jobs.** `font-display` (Outfit) carries the wordmark, headings and every money
+  figure; Manrope is the default and runs the interface text. `h1`–`h3` pick up `font-display` in the
+  base layer, so a heading does not need the class.
+- **Two component classes carry the repeated structure**: `.panel` is a floating white surface and
+  `.eyebrow` is the small tracked capitals used for section labels and table headers. Both live in
+  `globals.css` — add the third one there rather than re-typing its utilities.
+- **Controls are pill-shaped.** Buttons, inputs, selects, tabs and the pager are all `rounded-full`;
+  surfaces are `rounded-panel` or `rounded-2xl`. A `rounded-md` control is off-system.
+- **Inputs are filled rather than outlined**, and grow a border only on focus. Six outlined boxes in
+  a row is the look this replaced.
+
+`AppShell` owns the canvas padding, and the sidebar's `sticky` offset and height are derived from it.
+Change one without the other and the sidebar drifts out of alignment as the page scrolls.
 
 ## Constraints that look like mistakes but are not
 
-**shadcn/ui is installed but only used under `src/app/{login,forgot-password,reset-password,terms,privacy}`.**
-`/categories` and `/transactions` stay on their pre-existing hand-written Tailwind classes — that split
-is intentional (see `2026-07-28-category-management.md`, which rejected installing shadcn for that
-feature as scope creep, and `2026-07-28-auth-pages.md`, where the auth pages' own requirement asked
-for shadcn components). Don't "clean up" the inconsistency by migrating one side to match the other
-outside of a task that asks for it.
+**The shared primitives under `components/ui` are used app-wide; `Card` and `Form` are not.**
+Buttons, inputs, alerts and tabs are shared by every route because the redesign put every control on
+one system. `Card` and the `Form`/`FormField` wrapper stay on the pages that already used them —
+`src/app/{login,forgot-password,reset-password,terms,privacy}` and `/profile` — while `/categories`
+and `/transactions` keep hand-written Tailwind for their page-specific layout. Migrating those two to
+`Card`/`Form` is still out of scope for anything but a task that asks for it (see
+`2026-07-28-category-management.md`, which rejected it as scope creep).
+
+**`next/font/google` is aliased away under Vitest.** Font loading is an SWC transform, not a runtime
+module, so importing it under any other bundler throws "next/font requires SWC" and takes
+`app/layout.spec.tsx` down with it. `vitest.config.ts` points the specifier at `vitest.next-font.ts`.
+Add an export there when introducing another family — the alias does not generate them.
 
 **Never pass your own `id` to a Radix `Dialog.Content`.** Radix generates one, points the trigger's
 `aria-controls` at it, and spreads caller props _last_ — so your id silently wins and leaves that

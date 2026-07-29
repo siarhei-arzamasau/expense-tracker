@@ -21,6 +21,7 @@ import { ApiError } from "@/lib/api-client";
 import { authStorage } from "@/lib/auth-storage";
 import { currentUserQueryOptions } from "@/lib/queries/user";
 import { useLogout } from "@/lib/use-logout";
+import { Button } from "@/components/ui/button";
 
 interface NavigationItem {
   href: string;
@@ -54,11 +55,33 @@ function getInitials(name: string | null, email: string): string {
   return words.slice(0, 2).map(firstCharacter).join("").toUpperCase();
 }
 
+function Wordmark({ className = "" }: { className?: string }) {
+  return (
+    <Link
+      href="/"
+      className={`focus-visible:ring-ring/25 group flex items-center gap-2.5 rounded-full outline-none focus-visible:ring-[3px] ${className}`}
+    >
+      <span className="bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-xl">
+        <WalletCards aria-hidden className="size-[1.125rem]" />
+      </span>
+      <span className="font-display text-[1.0625rem] leading-none font-bold tracking-tight">
+        Expense Tracker
+      </span>
+    </Link>
+  );
+}
+
 interface NavigationProps {
   pathname: string;
   onNavigate?: () => void;
 }
 
+/**
+ * The icon badge is the active state, not a fill behind the whole row: it is
+ * the same ink-filled rounded square the summary cards use for their own
+ * markers, so "where you are" and "what this figure is" are told in one visual
+ * language.
+ */
 function Navigation({ pathname, onNavigate }: NavigationProps) {
   return (
     <nav aria-label="Primary navigation" className="space-y-1">
@@ -70,18 +93,61 @@ function Navigation({ pathname, onNavigate }: NavigationProps) {
             href={href}
             aria-current={active ? "page" : undefined}
             onClick={onNavigate}
-            className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+            className={`focus-visible:ring-ring/25 group flex items-center gap-3 rounded-2xl py-2 pr-4 pl-2 text-sm transition-colors outline-none focus-visible:ring-[3px] ${
               active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                ? "bg-secondary text-foreground font-semibold"
+                : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground font-medium"
             }`}
           >
-            <Icon aria-hidden className="size-4" />
+            <span
+              className={`flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground group-hover:text-foreground bg-transparent"
+              }`}
+            >
+              <Icon aria-hidden className="size-[1.0625rem]" strokeWidth={1.75} />
+            </span>
             {label}
           </Link>
         );
       })}
     </nav>
+  );
+}
+
+interface AccountCardProps {
+  name: string | null;
+  email: string;
+  label: string;
+  onLogout: () => void;
+}
+
+/** The one dark object in the sidebar, and the only place the account lives. */
+function AccountCard({ name, email, label, onLogout }: AccountCardProps) {
+  return (
+    <div className="bg-primary text-primary-foreground rounded-2xl p-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span
+          aria-hidden
+          className="bg-primary-foreground/12 flex size-10 shrink-0 items-center justify-center rounded-xl text-[0.8125rem] font-semibold"
+        >
+          {getInitials(name, email)}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">{label}</p>
+          {name && <p className="text-primary-foreground/60 truncate text-xs">{email}</p>}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onLogout}
+        className="text-primary-foreground/70 hover:bg-primary-foreground/10 hover:text-primary-foreground focus-visible:ring-primary-foreground/40 mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-[0.8125rem] font-medium transition-colors outline-none focus-visible:ring-2"
+      >
+        <LogOut aria-hidden className="size-4" strokeWidth={1.75} />
+        Logout
+      </button>
+    </div>
   );
 }
 
@@ -124,23 +190,21 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
 
     return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
-        <WalletCards aria-hidden className="text-muted-foreground size-8" />
+      <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-5 px-6 text-center">
+        <span className="bg-secondary flex size-14 items-center justify-center rounded-2xl">
+          <WalletCards aria-hidden className="text-muted-foreground size-6" strokeWidth={1.75} />
+        </span>
         <div>
-          <h1 className="font-semibold">Could not load your account</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <h1 className="text-xl font-semibold">Could not load your account</h1>
+          <p className="text-muted-foreground mt-1.5 text-sm">
             {userQuery.error instanceof ApiError
               ? userQuery.error.message
               : "Check your connection and try again."}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void userQuery.refetch()}
-          className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium"
-        >
+        <Button type="button" onClick={() => void userQuery.refetch()}>
           Try again
-        </button>
+        </Button>
       </main>
     );
   }
@@ -148,106 +212,79 @@ export function AppShell({ children }: { children: ReactNode }) {
   const userLabel = userQuery.data.name?.trim() || userQuery.data.email;
 
   return (
-    <div className="bg-muted/30 min-h-screen md:grid md:grid-cols-[16rem_minmax(0,1fr)]">
-      <aside className="bg-background border-border fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r p-4 md:flex">
-        <Link href="/" className="mb-8 flex items-center gap-2 px-2 font-semibold tracking-tight">
-          <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-lg">
-            <WalletCards aria-hidden className="size-4" />
-          </span>
-          Expense Tracker
-        </Link>
-
-        <Navigation pathname={pathname} />
-
-        <div className="border-border mt-auto border-t pt-4">
-          <div className="mb-3 flex min-w-0 items-center gap-3 px-2">
-            <span
-              aria-hidden
-              className="bg-secondary text-secondary-foreground flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-            >
-              {getInitials(userQuery.data.name, userQuery.data.email)}
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{userLabel}</p>
-              {userQuery.data.name && (
-                <p className="text-muted-foreground truncate text-xs">{userQuery.data.email}</p>
-              )}
+    <div className="min-h-screen p-3 sm:p-4 lg:p-6">
+      <div className="mx-auto flex w-full max-w-[100rem] gap-6">
+        <aside className="hidden w-[16.5rem] shrink-0 md:block">
+          {/* The sticky offset and the height have to match the canvas padding
+              on the wrapper, or the sidebar drifts out of alignment with the
+              content panel as the page scrolls. */}
+          <div className="panel sticky top-4 flex h-[calc(100vh-2rem)] flex-col p-4 lg:top-6 lg:h-[calc(100vh-3rem)]">
+            <Wordmark className="mb-9 px-1 pt-3" />
+            <Navigation pathname={pathname} />
+            <div className="mt-auto pt-6">
+              <AccountCard
+                name={userQuery.data.name}
+                email={userQuery.data.email}
+                label={userLabel}
+                onLogout={logout}
+              />
             </div>
           </div>
-          <button
-            type="button"
-            onClick={logout}
-            className="text-muted-foreground hover:bg-accent hover:text-foreground flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors"
-          >
-            <LogOut aria-hidden className="size-4" />
-            Logout
-          </button>
-        </div>
-      </aside>
+        </aside>
 
-      <Dialog.Root open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <header className="bg-background border-border sticky top-0 z-40 flex h-16 items-center justify-between border-b px-4 md:hidden">
-          <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-            <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-lg">
-              <WalletCards aria-hidden className="size-4" />
-            </span>
-            Expense Tracker
-          </Link>
-          <Dialog.Trigger asChild>
-            <button
-              type="button"
-              aria-label="Open navigation menu"
-              className="border-border rounded-md border p-2"
-            >
-              <Menu aria-hidden className="size-5" />
-            </button>
-          </Dialog.Trigger>
-        </header>
-
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 top-16 z-30 bg-black/30 md:hidden" />
-          <Dialog.Content
-            // No `id` here: Radix generates one, points the trigger's
-            // `aria-controls` at it, and spreads caller props last — so an id of
-            // our own silently wins and leaves that `aria-controls` dangling.
-            aria-describedby={undefined}
-            className="bg-background fixed inset-y-0 top-16 right-0 z-40 flex w-72 flex-col border-l p-4 shadow-xl focus:outline-none md:hidden"
-          >
-            <Dialog.Title className="sr-only">Navigation menu</Dialog.Title>
-            <Dialog.Close asChild>
-              <button
-                type="button"
-                aria-label="Close navigation menu"
-                className="border-border mb-4 ml-auto rounded-md border p-2"
-              >
-                <X aria-hidden className="size-5" />
-              </button>
-            </Dialog.Close>
-            <Navigation pathname={pathname} onNavigate={() => setMobileMenuOpen(false)} />
-            <div className="border-border mt-auto border-t pt-4">
-              <div className="mb-3 flex items-center gap-3 px-2">
-                <span
-                  aria-hidden
-                  className="bg-secondary flex size-9 items-center justify-center rounded-full text-xs font-semibold"
+        <Dialog.Root open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            <header className="panel flex h-16 items-center justify-between px-4 md:hidden">
+              <Wordmark />
+              <Dialog.Trigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="secondary"
+                  aria-label="Open navigation menu"
                 >
-                  {getInitials(userQuery.data.name, userQuery.data.email)}
-                </span>
-                <p className="min-w-0 truncate text-sm font-medium">{userLabel}</p>
-              </div>
-              <button
-                type="button"
-                onClick={logout}
-                className="text-muted-foreground hover:bg-accent flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium"
-              >
-                <LogOut aria-hidden className="size-4" />
-                Logout
-              </button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+                  <Menu aria-hidden className="size-5" strokeWidth={1.75} />
+                </Button>
+              </Dialog.Trigger>
+            </header>
 
-      <div className="min-w-0 md:col-start-2">{children}</div>
+            <div className="panel min-w-0 flex-1">{children}</div>
+          </div>
+
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px] md:hidden" />
+            <Dialog.Content
+              // No `id` here: Radix generates one, points the trigger's
+              // `aria-controls` at it, and spreads caller props last — so an id of
+              // our own silently wins and leaves that `aria-controls` dangling.
+              aria-describedby={undefined}
+              className="bg-card fixed inset-y-3 right-3 z-50 flex w-[17rem] flex-col rounded-panel p-4 shadow-panel focus:outline-none md:hidden"
+            >
+              <Dialog.Title className="sr-only">Navigation menu</Dialog.Title>
+              <Dialog.Close asChild>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Close navigation menu"
+                  className="mb-4 ml-auto"
+                >
+                  <X aria-hidden className="size-5" strokeWidth={1.75} />
+                </Button>
+              </Dialog.Close>
+              <Navigation pathname={pathname} onNavigate={() => setMobileMenuOpen(false)} />
+              <div className="mt-auto pt-6">
+                <AccountCard
+                  name={userQuery.data.name}
+                  email={userQuery.data.email}
+                  label={userLabel}
+                  onLogout={logout}
+                />
+              </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      </div>
     </div>
   );
 }

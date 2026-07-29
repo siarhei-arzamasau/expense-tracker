@@ -3,53 +3,97 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* shadcn/ui design tokens. `shadcn add <component>` expects these to exist. */
+/*
+ * "Soft ledger" — warm paper canvas, floating white panels, three pastel
+ * tints that carry the money semantics (income / balance / expense), and one
+ * near-black ink used sparingly for emphasis.
+ *
+ * The shadcn/ui token names are kept and repointed at this palette rather than
+ * replaced, so `shadcn add <component>` still produces something that matches
+ * and every existing `bg-card` / `text-muted-foreground` follows along.
+ */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --radius: 0.875rem;
+
+  /* Warm paper the panels float on. Not pure grey — it carries a little yellow
+     so white surfaces read as lit rather than as a lighter shade of the page. */
+  --canvas: #efeee9;
+
+  --background: #ffffff;
+  --foreground: #15171b;
+  --card: #ffffff;
+  --card-foreground: #15171b;
+  --popover: #ffffff;
+  --popover-foreground: #15171b;
+  --primary: #15171b;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f3ef;
+  --secondary-foreground: #15171b;
+  --muted: #f4f3ef;
+  --muted-foreground: #6e727a;
+  --accent: #f1efe9;
+  --accent-foreground: #15171b;
+  --destructive: #b3402a;
+  --destructive-foreground: #ffffff;
+  --border: #e7e4dc;
+  --input: #ded9cf;
+  --ring: #15171b;
+
+  /* Money tints. Each pairs a pastel fill with an ink dark enough to hold
+     small text on it (all three clear 4.5:1). */
+  --tint-income: #dcf1e3;
+  --tint-income-ink: #10603a;
+  --tint-balance: #e2e8fa;
+  --tint-balance-ink: #33499b;
+  --tint-expense: #fbe6d6;
+  --tint-expense-ink: #9d4f28;
+  --tint-neutral: #ece5f7;
+  --tint-neutral-ink: #55398f;
+
+  /* Named `--panel-shadow`, not `--shadow-panel`: the latter is the Tailwind
+     theme key below, and defining both would emit `--shadow-panel:
+     var(--shadow-panel)` — a self-reference that only resolves by accident of
+     layer order. */
+  --panel-shadow: 0 1px 2px rgb(21 23 27 / 0.04), 0 12px 32px -18px rgb(21 23 27 / 0.22);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --canvas: #0f1114;
+
+  --background: #17191e;
+  --foreground: #f3f2ef;
+  --card: #17191e;
+  --card-foreground: #f3f2ef;
+  --popover: #17191e;
+  --popover-foreground: #f3f2ef;
+  --primary: #f3f2ef;
+  --primary-foreground: #15171b;
+  --secondary: #22252b;
+  --secondary-foreground: #f3f2ef;
+  --muted: #22252b;
+  --muted-foreground: #9a9ea7;
+  --accent: #22252b;
+  --accent-foreground: #f3f2ef;
+  --destructive: #e2705a;
+  --destructive-foreground: #15171b;
+  --border: #2a2e35;
+  --input: #343941;
+  --ring: #9a9ea7;
+
+  --tint-income: #16311f;
+  --tint-income-ink: #7fd6a2;
+  --tint-balance: #1b2340;
+  --tint-balance-ink: #a3b4f2;
+  --tint-expense: #35211a;
+  --tint-expense-ink: #efab7f;
+  --tint-neutral: #241d36;
+  --tint-neutral-ink: #c0aaf0;
+
+  --panel-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px -18px rgb(0 0 0 / 0.8);
 }
 
 @theme inline {
+  --color-canvas: var(--canvas);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -69,10 +113,27 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  --color-income: var(--tint-income);
+  --color-income-ink: var(--tint-income-ink);
+  --color-balance: var(--tint-balance);
+  --color-balance-ink: var(--tint-balance-ink);
+  --color-expense: var(--tint-expense);
+  --color-expense-ink: var(--tint-expense-ink);
+  --color-neutral-tint: var(--tint-neutral);
+  --color-neutral-tint-ink: var(--tint-neutral-ink);
+
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-outfit), var(--font-manrope), ui-sans-serif, sans-serif;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-panel: 1.75rem;
+
+  --shadow-panel: var(--panel-shadow);
 }
 
 @layer base {
@@ -81,6 +142,45 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-canvas text-foreground font-sans;
+    font-feature-settings: "cv11";
+  }
+
+  /* Headings and money share the display face; the body face is left to run
+     the interface text, where its narrower fit does more work. */
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-tight;
+  }
+
+  /* Every figure in this app is a column of money or a date. Lining, tabular
+     by default, so nothing shifts as values change. */
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* The small tracked capitals used for eyebrows, table headers and field
+     labels — the one typographic device that repeats across every page. */
+  .eyebrow {
+    @apply text-muted-foreground text-[0.6875rem] font-semibold tracking-[0.12em] uppercase;
+  }
+
+  /* A white panel floating on the canvas. */
+  .panel {
+    @apply bg-card rounded-panel shadow-panel;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

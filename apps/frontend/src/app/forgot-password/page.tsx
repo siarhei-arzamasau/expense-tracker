@@ -9,7 +9,8 @@ import { requestPasswordReset } from "@/lib/queries/auth";
 import { forgotPasswordSchema, type ForgotPasswordValues } from "@/lib/validation/auth";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthBrand } from "@/components/auth/auth-brand";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -29,11 +30,9 @@ export default function ForgotPasswordPage() {
   const mutation = useMutation({ mutationFn: requestPasswordReset });
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-12">
+      <AuthBrand tagline="Enter your email and we'll send a link to set a new password." />
       <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Forgot password</CardTitle>
-        </CardHeader>
         <CardContent>
           {mutation.isSuccess ? (
             <Alert>

@@ -24,6 +24,6 @@
   "devDependencies": {
     "@expense-tracker/typescript-config": "workspace:*",
     "oxlint": "^1.76.0",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   }
 }

@@ -172,10 +172,18 @@ pushes to `main`, split into four jobs:
 | **End-to-end tests**        | `pnpm db:deploy`, migration-drift check, `pnpm test:e2e`         |
 | **Coverage report**         | `pnpm test:cov`, written to the run summary                      |
 
-The first three job names are a repository-level contract once branch protection requires them.
-Renaming a job does not fail loudly — the old required check simply stops reporting and every pull
-request blocks on a check that no longer exists. **Coverage report** is intentionally excluded from
-the required set: neither runner declares a threshold, so it reports rather than gates.
+`.github/workflows/dependency-review.yml` adds a pull-request-only `Dependency review` check that
+rejects newly introduced high- or critical-severity vulnerabilities. The first three CI job names
+and this dependency-review job name are repository-level contracts once the `main` ruleset requires
+them. Renaming one does not fail loudly — the old required check simply stops reporting and every
+pull request blocks on a check that no longer exists. **Coverage report** is intentionally excluded
+from the required set: neither runner declares a threshold, so it reports rather than gates.
+
+GitHub CodeQL default setup scans JavaScript/TypeScript, while repository-level secret scanning and
+push protection prevent known credentials from entering the repository. The `main` ruleset requires
+the four named checks above, blocks high- or critical-severity CodeQL findings, requires up-to-date
+pull requests and resolved conversations, and blocks force-pushes and branch deletion. Renovate has
+no bypass.
 
 Every job reads Node from `.nvmrc` and pnpm from `packageManager` in `package.json`, installs with
 `pnpm install --frozen-lockfile`, and requires no repository secrets. The workflow sets
@@ -197,10 +205,15 @@ removed `--to-schema-datamodel`; the flag is `--to-schema`. The `--from-migratio
 usable here because it requires a `datasource.shadowDatabaseUrl` in `prisma.config.ts`.
 
 Outside the PR gate, `.github/workflows/audit.yml` runs `pnpm audit --audit-level=high` on a weekly
-schedule, and `.github/dependabot.yml` opens grouped weekly npm and GitHub Actions updates.
+schedule. The Mend Renovate GitHub App manages npm, GitHub Actions, Node, pnpm, and container
+updates from the root `renovate.json`: regular npm releases wait seven days, major updates require
+Dependency Dashboard approval, and only development patch updates plus weekly lockfile maintenance
+may automerge after required checks pass. Dependabot alerts remain enabled as GitHub's advisory
+feed, while Dependabot version and security-update pull requests remain disabled.
 
-`oxfmt` formats YAML, so the lint job checks the workflow file that is running it. Run
-`pnpm format:check` locally after editing anything under `.github/workflows`.
+Every Action is pinned to a full commit SHA with a Renovate-maintained version comment. `oxfmt`
+formats YAML and JSON, so run `pnpm format:check` locally after editing workflows or
+`renovate.json`.
 
 ## Repository conventions
 

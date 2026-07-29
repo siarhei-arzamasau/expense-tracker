@@ -300,14 +300,25 @@ compares that database against the datamodel and exits non-zero if they disagree
 **Coverage is reported, not enforced.** Neither runner declares a threshold, so the coverage job
 records the numbers in the run summary and is deliberately not a required check.
 
-Two more workflows sit outside the PR gate: `.github/workflows/audit.yml` runs
-`pnpm audit --audit-level=high` weekly, and `.github/dependabot.yml` opens grouped weekly
-dependency and action updates. The audit is deliberately not a PR gate — a fresh advisory against a
-transitive dependency would otherwise block every open pull request for a reason unrelated to its
-diff.
+`.github/workflows/dependency-review.yml` adds a separate required check that rejects dependency
+changes introducing high- or critical-severity vulnerabilities. `.github/workflows/audit.yml`
+still runs `pnpm audit --audit-level=high` weekly rather than blocking unrelated pull requests for
+new advisories elsewhere in the existing dependency tree.
 
-Note that `oxfmt` formats YAML, so the lint job checks the workflow files themselves. Run
-`pnpm format:check` before pushing changes to `.github/workflows`.
+GitHub CodeQL default setup scans the JavaScript/TypeScript codebase. Repository settings also
+enable secret scanning, push protection, and a `main` ruleset that requires the three blocking CI
+jobs plus dependency review, rejects high or critical CodeQL findings, and blocks force-pushes or
+branch deletion. Renovate receives no bypass from these gates.
+
+The Mend Renovate GitHub App manages dependency, GitHub Action, Node, pnpm, and container updates
+from `renovate.json`. It waits seven days for regular npm releases, requires dashboard approval for
+major updates, pins Actions and containers to immutable digests, and only automerges development
+patches and weekly lockfile maintenance after required checks pass. Dependabot alerts remain the
+GitHub advisory feed, while Dependabot-generated version and security pull requests stay disabled.
+
+All Actions are pinned to full commit SHAs with Renovate-maintained version comments. Note that
+`oxfmt` formats YAML and JSON, so run `pnpm format:check` before pushing workflow or Renovate
+configuration changes.
 
 ## Production-style local run
 

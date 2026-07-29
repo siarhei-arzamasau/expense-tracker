@@ -1,0 +1,118 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "group:monorepos",
+    "helpers:pinGitHubActionDigests",
+    "docker:pinDigests",
+    "abandonments:recommended",
+    ":configMigration",
+    ":maintainLockFilesWeekly"
+  ],
+  "timezone": "Europe/Minsk",
+  "schedule": ["before 6am on Monday"],
+  "dependencyDashboard": true,
+  "prConcurrentLimit": 5,
+  "branchConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "rangeStrategy": "update-lockfile",
+  "separateMinorPatch": true,
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "assignees": ["siarhei-arzamasau"],
+  "labels": ["dependencies"],
+  "internalChecksFilter": "strict",
+  "packageRules": [
+    {
+      "description": ["Wait seven days before proposing regular npm releases."],
+      "matchDatasources": ["npm"],
+      "minimumReleaseAge": "7 days",
+      "minimumReleaseAgeBehaviour": "timestamp-required",
+      "prCreation": "not-pending"
+    },
+    {
+      "description": ["Keep TypeScript compatible with ts-jest."],
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
+    },
+    {
+      "description": ["Keep Node types aligned with the Node 24 runtime."],
+      "matchPackageNames": ["@types/node"],
+      "allowedVersions": "<25"
+    },
+    {
+      "description": ["Keep the runtime on the supported Node 24 release line."],
+      "matchDatasources": ["node-version"],
+      "matchPackageNames": ["node"],
+      "allowedVersions": "24.x"
+    },
+    {
+      "description": ["Keep the package manager on pnpm 11."],
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["packageManager"],
+      "matchPackageNames": ["pnpm"],
+      "allowedVersions": "<12"
+    },
+    {
+      "description": ["Keep local and CI databases on PostgreSQL 17."],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["postgres"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": [
+        "Automerge grouped npm development patch updates after required checks pass."
+      ],
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch"],
+      "groupName": "development dependency patches",
+      "semanticCommitScope": "deps-dev",
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": ["Group development minor updates for manual review."],
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "development dependency minors",
+      "semanticCommitScope": "deps-dev",
+      "automerge": false
+    },
+    {
+      "description": ["Require dashboard approval before opening major update pull requests."],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "addLabels": ["major"],
+      "automerge": false
+    },
+    {
+      "description": ["Group GitHub Actions updates and keep them under manual review."],
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions",
+      "semanticCommitType": "ci",
+      "semanticCommitScope": "deps",
+      "automerge": false
+    },
+    {
+      "description": ["Keep container updates under manual review."],
+      "matchDatasources": ["docker"],
+      "automerge": false
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true,
+    "automergeType": "pr",
+    "platformAutomerge": true
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"],
+    "automerge": false
+  }
+}

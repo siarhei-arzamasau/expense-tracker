@@ -67,17 +67,21 @@ Seeded login: `demo@example.com` / `password123`.
 
 `.github/workflows/ci.yml` gates pull requests into `main` and pushes to `main` with four jobs: **Lint and static quality** (`format:check`, `actionlint`, `lint`, `typecheck`), **Tests and build** (`test`, `build`), **End-to-end tests** (Postgres service, `db:deploy`, migration-drift check, `test:e2e`), and **Coverage report**. No secrets.
 
-**The first three job names are public API.** Once branch protection requires them, a rename does not fail loudly — the old required check just stops reporting and every PR blocks forever on a check that no longer exists. **Coverage report is deliberately not a required check**: neither runner declares a threshold, so it records numbers rather than gating on them.
+`.github/workflows/dependency-review.yml` runs on every pull request and rejects dependency changes that introduce high- or critical-severity vulnerabilities. **The first three CI job names and the `Dependency review` job name are public API.** Once the `main` ruleset requires them, a rename does not fail loudly — the old required check just stops reporting and every PR blocks forever on a check that no longer exists. **Coverage report is deliberately not a required check**: neither runner declares a threshold, so it records numbers rather than gating on them.
+
+GitHub CodeQL default setup scans JavaScript/TypeScript, and repository-level secret scanning plus push protection are enabled. The `main` ruleset must require the four named checks above, block high- or critical-severity CodeQL findings, require up-to-date pull requests and resolved conversations, and block force-pushes and branch deletion. Renovate never bypasses these gates.
 
 **The migration-drift check is why `schema.prisma` cannot be edited without a migration.** After `prisma migrate deploy` builds the CI database from `prisma/migrations` alone, `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` compares that database to the datamodel; a non-empty diff exits 2. Note Prisma 7 removed `--to-schema-datamodel` — the flag is `--to-schema`, and the connection URL comes from `prisma.config.ts`. The `--from-migrations` form is not usable here: it demands a `datasource.shadowDatabaseUrl` in committed config for a CI-only need.
 
 `.github/workflows/audit.yml` runs `pnpm audit --audit-level=high` weekly, **not on pull requests** — a new advisory against a transitive dependency would otherwise turn every open PR red for a reason unrelated to its diff.
 
+Dependency version updates are managed by the Mend Renovate GitHub App using the root `renovate.json`. Regular npm releases wait seven days; major updates need Dependency Dashboard approval; only development patch updates and weekly lockfile maintenance may automerge, and only after required checks pass. GitHub Dependabot alerts stay enabled as Renovate's advisory source, but Dependabot version and security-update PRs stay disabled to avoid duplicate bots.
+
 The workflow sets a `DATABASE_URL` at the workflow level, and **every** job needs it: `lint` and `test` each depend on `^build`, and `packages/database`'s build depends on `db:generate`, which aborts without the variable even though it never opens a connection. It was a placeholder until the e2e job made it real — the Postgres service sets `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB` to match `ci:ci@localhost:5432/ci` exactly, so changing one without the other breaks that job alone. Node comes from `.nvmrc` and pnpm from `packageManager` — never restate either version in the workflow. `pnpm/action-setup` must run before `actions/setup-node`, because `cache: pnpm` shells out to `pnpm` to find the store.
 
 **Never gate a required job behind a job-level `if:` or a `paths:` filter.** A skipped job reports as pending, not passing, and is indistinguishable from one still running — every PR then blocks forever.
 
-Oxfmt formats YAML, so the lint job format-checks the workflow running it. Run `pnpm format:check` after editing anything under `.github/workflows`.
+All GitHub Actions are pinned to full commit SHAs and carry version comments that Renovate maintains. Oxfmt formats YAML and JSON, so run `pnpm format:check` after editing workflows or `renovate.json`.
 
 ## Architecture
 

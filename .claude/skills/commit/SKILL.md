@@ -29,7 +29,7 @@ commit message follows Conventional Commits. Both are described below.
 6. **Stop there unless the request asks for more.** Pushing and opening a pull request are
    outward-facing steps, not the tail end of "commit this" — offer them rather than assuming
    them. When they are wanted: push, open the PR, merge once checks pass and review is
-   complete, then delete the branch.
+   complete, then delete the branch. The `pr` skill covers the push-and-open half of that.
 
 ## Git branches
 

@@ -37,7 +37,7 @@ Installed and verified: `typecheck`, `lint`, `build`, `test`, and `format:check`
 ```bash
 nvm use && cp .env.example .env      # Node 24.18.0
 pnpm install
-docker compose up -d                  # Postgres 17 on :5432
+docker compose up -d                  # Postgres 17 on :5432, DBHub MCP on :8080
 pnpm db:generate && pnpm db:migrate && pnpm db:seed
 ```
 

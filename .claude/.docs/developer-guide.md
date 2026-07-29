@@ -133,6 +133,8 @@ docker compose down
 | `pnpm format`       | Format tracked source with Oxfmt.                                     |
 | `pnpm format:check` | Check formatting without modifying files.                             |
 | `pnpm test`         | Run backend Jest and frontend Vitest suites.                          |
+| `pnpm test:e2e`     | Run backend end-to-end tests; needs a running, migrated database.     |
+| `pnpm test:cov`     | Run both suites with coverage. No threshold is enforced.              |
 | `pnpm clean`        | Clean workspace outputs and root `node_modules`; reinstall afterward. |
 | `pnpm db:generate`  | Generate the Prisma client.                                           |
 | `pnpm db:migrate`   | Create and apply a development migration.                             |
@@ -155,29 +157,47 @@ pnpm --filter @expense-tracker/frontend exec vitest transaction-filters
 ```
 
 Backend end-to-end tests boot the real application and require PostgreSQL to be running and
-migrated. Root `pnpm test` intentionally excludes them.
+migrated. Root `pnpm test` intentionally excludes them; `pnpm test:e2e` runs them, and `pnpm
+test:cov` runs both suites with coverage.
 
 ### Continuous integration
 
 `.github/workflows/ci.yml` runs the same root commands on pull requests targeting `main` and on
-pushes to `main`, split into two jobs:
+pushes to `main`, split into four jobs:
 
-| Job                         | Commands                                           |
-| --------------------------- | -------------------------------------------------- |
-| **Lint and static quality** | `pnpm format:check`, `pnpm lint`, `pnpm typecheck` |
-| **Tests and build**         | `pnpm test`, `pnpm build`                          |
+| Job                         | Commands                                                         |
+| --------------------------- | ---------------------------------------------------------------- |
+| **Lint and static quality** | `pnpm format:check`, `actionlint`, `pnpm lint`, `pnpm typecheck` |
+| **Tests and build**         | `pnpm test`, `pnpm build`                                        |
+| **End-to-end tests**        | `pnpm db:deploy`, migration-drift check, `pnpm test:e2e`         |
+| **Coverage report**         | `pnpm test:cov`, written to the run summary                      |
 
-The job names are a repository-level contract once branch protection requires them. Renaming a job
-does not fail loudly — the old required check simply stops reporting and every pull request blocks
-on a check that no longer exists.
+The first three job names are a repository-level contract once branch protection requires them.
+Renaming a job does not fail loudly — the old required check simply stops reporting and every pull
+request blocks on a check that no longer exists. **Coverage report** is intentionally excluded from
+the required set: neither runner declares a threshold, so it reports rather than gates.
 
-Both jobs read Node from `.nvmrc` and pnpm from `packageManager` in `package.json`, install with
-`pnpm install --frozen-lockfile`, and require no repository secrets. The workflow sets a
-placeholder `DATABASE_URL` because `prisma generate` resolves that variable eagerly; both jobs need
-it, since `lint` and `test` both depend on `^build` and therefore on `db:generate`. Nothing
-connects to a database, and no PostgreSQL service is started, so backend end-to-end tests stay out
-of CI. Adding them later means a `services: postgres` block plus `pnpm db:deploy` in a separate
-job.
+Every job reads Node from `.nvmrc` and pnpm from `packageManager` in `package.json`, installs with
+`pnpm install --frozen-lockfile`, and requires no repository secrets. The workflow sets
+`DATABASE_URL` because `prisma generate` resolves that variable eagerly, and every job needs it
+since `lint`, `test` and `test:e2e` all depend on `^build` and therefore on `db:generate`. The
+end-to-end job starts a `postgres:17-alpine` service container whose `POSTGRES_USER`,
+`POSTGRES_PASSWORD` and `POSTGRES_DB` are chosen to match that URL exactly.
+
+The migration-drift step runs after `pnpm db:deploy`, when the CI database has been built from
+`prisma/migrations` and nothing else:
+
+```bash
+pnpm --filter @expense-tracker/database exec prisma migrate diff \
+  --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+```
+
+That answers one question — was `schema.prisma` edited without generating a migration? Prisma 7
+removed `--to-schema-datamodel`; the flag is `--to-schema`. The `--from-migrations` form is not
+usable here because it requires a `datasource.shadowDatabaseUrl` in `prisma.config.ts`.
+
+Outside the PR gate, `.github/workflows/audit.yml` runs `pnpm audit --audit-level=high` on a weekly
+schedule, and `.github/dependabot.yml` opens grouped weekly npm and GitHub Actions updates.
 
 `oxfmt` formats YAML, so the lint job checks the workflow file that is running it. Run
 `pnpm format:check` locally after editing anything under `.github/workflows`.
@@ -383,10 +403,12 @@ pnpm test
 pnpm build
 ```
 
-Run backend e2e separately when persistence or HTTP composition changed:
+Run backend e2e separately when persistence or HTTP composition changed. CI runs it too, but
+against its own service container, so a local run is still the faster feedback loop:
 
 ```bash
-pnpm --filter @expense-tracker/backend test:e2e
+docker compose up -d && pnpm db:migrate
+pnpm test:e2e
 ```
 
 ## Git workflow

@@ -24,12 +24,22 @@ import { defineConfig } from "vitest/config";
  * transform, not a runtime module, and importing it outside a Next build throws
  * "next/font requires SWC". `vitest.next-font.ts` returns the shape the root
  * layout consumes.
+ *
+ * Coverage carries no `thresholds` key on purpose. CI reports the numbers into
+ * the job summary but never fails on them; a floor picked before anyone has
+ * measured the baseline either does nothing or blocks unrelated pull requests.
  */
 export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.spec.ts", "src/**/*.spec.tsx"],
     setupFiles: ["./vitest.setup.ts"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary"],
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx"],
+    },
   },
   oxc: { jsx: { runtime: "automatic" } },
   resolve: {

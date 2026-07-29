@@ -271,25 +271,42 @@ pnpm --filter @expense-tracker/frontend build
 ```
 
 The root `pnpm test` command intentionally excludes backend end-to-end tests because they require a
-live PostgreSQL database.
+live PostgreSQL database. Run those with `pnpm test:e2e` after `docker compose up -d` and
+`pnpm db:migrate`.
 
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on every pull request targeting `main` and on every push to `main`.
-It has two jobs, so a failure points at one half of the suite rather than the whole run:
+It has four jobs, so a failure points at one part of the suite rather than the whole run:
 
-| Job                         | Commands                                           |
-| --------------------------- | -------------------------------------------------- |
-| **Lint and static quality** | `pnpm format:check`, `pnpm lint`, `pnpm typecheck` |
-| **Tests and build**         | `pnpm test`, `pnpm build`                          |
+| Job                         | Commands                                                         |
+| --------------------------- | ---------------------------------------------------------------- |
+| **Lint and static quality** | `pnpm format:check`, `actionlint`, `pnpm lint`, `pnpm typecheck` |
+| **Tests and build**         | `pnpm test`, `pnpm build`                                        |
+| **End-to-end tests**        | `pnpm db:deploy`, migration-drift check, `pnpm test:e2e`         |
+| **Coverage report**         | `pnpm test:cov`, posted to the run summary                       |
 
-Both jobs use the pinned Node version from `.nvmrc` and the pinned pnpm version from
-`package.json`, install with `pnpm install --frozen-lockfile`, and need no repository secrets. A
-placeholder `DATABASE_URL` is set at the workflow level because `prisma generate` requires the
-variable to resolve; no database is contacted, and no PostgreSQL service runs. Backend end-to-end
-tests are therefore excluded from CI for the same reason they are excluded from `pnpm test`.
+Every job uses the pinned Node version from `.nvmrc` and the pinned pnpm version from
+`package.json`, installs with `pnpm install --frozen-lockfile`, and needs no repository secrets.
+`DATABASE_URL` is set at the workflow level because `prisma generate` requires the variable to
+resolve; the first three jobs never contact a database, while **End-to-end tests** starts a
+`postgres:17-alpine` service container that serves exactly that URL.
 
-Note that `oxfmt` formats YAML, so the lint job checks the workflow file itself. Run
+The **migration-drift check** is the reason `schema.prisma` cannot be edited without a migration.
+Once `prisma migrate deploy` has built the CI database from `prisma/migrations` alone,
+`prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code`
+compares that database against the datamodel and exits non-zero if they disagree.
+
+**Coverage is reported, not enforced.** Neither runner declares a threshold, so the coverage job
+records the numbers in the run summary and is deliberately not a required check.
+
+Two more workflows sit outside the PR gate: `.github/workflows/audit.yml` runs
+`pnpm audit --audit-level=high` weekly, and `.github/dependabot.yml` opens grouped weekly
+dependency and action updates. The audit is deliberately not a PR gate — a fresh advisory against a
+transitive dependency would otherwise block every open pull request for a reason unrelated to its
+diff.
+
+Note that `oxfmt` formats YAML, so the lint job checks the workflow files themselves. Run
 `pnpm format:check` before pushing changes to `.github/workflows`.
 
 ## Production-style local run

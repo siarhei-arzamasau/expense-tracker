@@ -33,6 +33,14 @@
     "test": {
       "dependsOn": ["^build", "db:generate"]
     },
+    "test:e2e": {
+      "dependsOn": ["^build", "db:generate"],
+      "cache": false
+    },
+    "test:cov": {
+      "dependsOn": ["^build", "db:generate"],
+      "outputs": ["coverage/**"]
+    },
     "clean": {
       "cache": false
     }

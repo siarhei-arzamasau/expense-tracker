@@ -40,7 +40,7 @@ Use GitHub Flow for all repository changes:
 - Name branches `<type>/<short-kebab-case-description>`, using `feature`, `fix`, `docs`, `refactor`, `test`, or `chore` as the type; for example, `feature/frontend-homepage`.
 - Keep each branch focused on one coherent change. Bring `main` into the branch before merging when needed to resolve divergence.
 - Merge into `main` through a pull request only after the relevant checks pass and review is complete. Delete the branch after merge.
-- "Checks pass" means checks that actually ran. `.github/workflows/ci.yml` runs `format:check`, `lint`, `typecheck`, `test`, and `build` on every pull request into `main`, so a merge can legitimately be described as gated on CI. It does not run backend e2e, which still has to be run locally when persistence or HTTP composition changed. Run the relevant checks locally before pushing regardless — CI is the second opinion, not the first.
+- "Checks pass" means checks that actually ran. `.github/workflows/ci.yml` runs `format:check`, `lint`, `typecheck`, `test`, and `build` on every pull request into `main`, plus backend e2e and a Prisma migration-drift check against a Postgres service container, so a merge can legitimately be described as gated on CI. Coverage is reported but not enforced. Run the relevant checks locally before pushing regardless — CI is the second opinion, not the first, and `pnpm test:e2e` needs `docker compose up -d && pnpm db:migrate` first.
 - Do not introduce a `develop` branch or other long-lived integration branches unless the repository workflow is explicitly changed.
 
 ## Git commits

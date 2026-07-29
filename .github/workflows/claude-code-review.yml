@@ -10,15 +10,24 @@ on:
     #   - "src/**/*.js"
     #   - "src/**/*.jsx"
 
+# Without this, a five-push pull request starts five overlapping reviews and the
+# first four are wasted: every `synchronize` queues a full run of its own.
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # A draft is work in progress by definition; review it when it is marked ready,
+    # which is one of the trigger types above. Dependabot pull requests are lockfile
+    # diffs and are not worth a model call.
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
 
     runs-on: ubuntu-latest
+    # Both Claude workflows otherwise inherit the six-hour default.
+    timeout-minutes: 20
     permissions:
       contents: read
       pull-requests: read

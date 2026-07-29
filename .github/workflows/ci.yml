@@ -45,8 +45,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Cache entries are immutable, so the key must be unique per run or it is
+      # written once and never refreshed; restore-keys then pulls the most recent
+      # prefix match. Keyed per job because each runs a different task set, and a
+      # shared key would have the jobs overwriting each other's entries.
+      - name: Restore Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-${{ github.job }}-
+
       - name: Check formatting
         run: pnpm format:check
+
+      # Catches invalid runs-on values, bad expression syntax, and shell bugs in
+      # run: blocks — mistakes that otherwise only surface as a red run on main.
+      - name: Lint workflows
+        uses: raven-actions/actionlint@v2
 
       - name: Lint
         run: pnpm lint
@@ -74,10 +90,119 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Backend Jest and frontend Vitest only; backend e2e needs a migrated database
-      # and stays out of this gate.
+      - name: Restore Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-${{ github.job }}-
+
+      # Backend Jest and frontend Vitest only. Backend e2e needs a migrated
+      # database and runs in the `e2e` job below.
       - name: Test
         run: pnpm test
 
       - name: Build
         run: pnpm build
+
+  e2e:
+    name: End-to-end tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      # The workflow-level DATABASE_URL already points at ci:ci@localhost:5432/ci,
+      # which is exactly what this serves — nothing to override below.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        # Mirrors the healthcheck in docker-compose.yml. Without it the first
+        # `migrate deploy` races initdb and fails intermittently.
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      JWT_SECRET: ci-only-not-a-secret
+      JWT_EXPIRES_IN: 7d
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-${{ github.job }}-
+
+      # `migrate deploy` needs no generated client, so this can run before db:generate.
+      - name: Apply migrations
+        run: pnpm db:deploy
+
+      # Catches a schema.prisma edit that never got a migration: compares the database
+      # the migrations just produced against the datamodel. --exit-code turns a
+      # non-empty diff into exit 2. The --from-migrations form is not usable here — it
+      # demands a shadowDatabaseUrl in prisma.config.ts, and this assertion is stronger.
+      - name: Check for migration drift
+        run: >-
+          pnpm --filter @expense-tracker/database exec prisma migrate diff
+          --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+
+      # Pulls in ^build and db:generate through the turbo task; the spec registers and
+      # deletes its own user, so no seed is required.
+      - name: End-to-end tests
+        run: pnpm test:e2e
+
+  coverage:
+    name: Coverage report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Restore Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ github.job }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-${{ github.job }}-
+
+      # Reporting only, and deliberately never a required check: neither runner
+      # declares a threshold, so this job records the numbers rather than gating on
+      # them. Revisit once there is a measured baseline worth defending.
+      - name: Coverage
+        run: pnpm test:cov
+
+      - name: Publish coverage summary
+        run: node scripts/coverage-summary.mjs

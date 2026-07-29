@@ -16,6 +16,8 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "test:cov": "turbo run test:cov",
     "clean": "turbo run clean && rm -rf node_modules",
     "format": "oxfmt",
     "format:check": "oxfmt --check",

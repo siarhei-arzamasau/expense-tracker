@@ -23,7 +23,9 @@ pnpm --filter @expense-tracker/backend test:e2e                        # needs a
 uses Vitest instead — that split is on purpose, not drift.
 
 `pnpm test` at the root deliberately excludes e2e — `test/app.e2e-spec.ts` boots the real `AppModule`
-and requires Postgres running and migrated.
+and requires Postgres running and migrated. Run it with `pnpm test:e2e` from the root, which builds
+the workspace dependencies first; CI runs the same command against a service container in the
+**End-to-end tests** job.
 
 Swagger is served at `:3001/api/docs` when `pnpm dev` is running.
 

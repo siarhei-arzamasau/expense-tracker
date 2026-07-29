@@ -1,0 +1,43 @@
+name: Audit
+
+# Deliberately not on pull_request. A newly published advisory against a transitive
+# dependency would turn every open pull request red for a reason unrelated to its
+# diff, which teaches people to ignore or bypass the gate. Weekly instead, so the
+# same information arrives as something one person acts on.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # packages/database's build depends on db:generate, which resolves DATABASE_URL
+  # eagerly through prisma.config.ts. No database is contacted. Not a secret.
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+  HUSKY: 0
+
+jobs:
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high

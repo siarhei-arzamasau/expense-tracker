@@ -109,6 +109,25 @@ describe("AppShell", () => {
     expect(mocks.refetch).toHaveBeenCalledTimes(1);
   });
 
+  // Both halves matter and neither is visible to a type check: a skip link that
+  // is not first saves no keystrokes, and one pointing at a container without
+  // `tabIndex` scrolls the page while leaving focus back in the navigation, so
+  // the next Tab returns to the links the reader just skipped.
+  it("puts the skip link ahead of the navigation and targets a focusable wrapper", () => {
+    render(<AppShell>Private content</AppShell>);
+
+    const skip = screen.getByRole("link", { name: "Skip to main content" });
+    const firstNavLink = screen.getByRole("link", { name: "Dashboard" });
+    const target = document.getElementById("main-content");
+
+    expect(
+      skip.compareDocumentPosition(firstNavLink) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(skip).toHaveAttribute("href", "#main-content");
+    expect(target).toHaveAttribute("tabindex", "-1");
+    expect(target).toContainElement(screen.getByText("Private content"));
+  });
+
   it("marks the active route, preserves emoji initials, and exposes voluntary logout", async () => {
     const user = userEvent.setup();
     render(<AppShell>Private content</AppShell>);

@@ -26,7 +26,7 @@ function PasswordInput({ className, ...props }: Omit<React.ComponentProps<typeof
         onClick={() => setVisible((current) => !current)}
         disabled={props.disabled}
         aria-label={visible ? "Hide password" : "Show password"}
-        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/25 absolute inset-y-1 right-1 flex w-9 items-center justify-center rounded-full transition-colors outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-45"
+        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/70 absolute inset-y-1 right-1 flex w-9 items-center justify-center rounded-full transition-colors outline-none focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-45"
       >
         <Icon className="size-4" aria-hidden="true" />
       </button>

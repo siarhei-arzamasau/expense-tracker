@@ -30,7 +30,11 @@
   --secondary: #f4f3ef;
   --secondary-foreground: #15171b;
   --muted: #f4f3ef;
-  --muted-foreground: #6e727a;
+  /* Dark enough to clear 4.5:1 on the *canvas*, not just on a white panel.
+     Canvas is the binding surface at #efeee9, and this token lands on it in the
+     auth taglines and the shell's loading and error copy; a value tuned to
+     white alone (the previous #6e727a) reads 4.16:1 there and fails. */
+  --muted-foreground: #686c74;
   --accent: #f1efe9;
   --accent-foreground: #15171b;
   --destructive: #b3402a;
@@ -137,8 +141,11 @@
 }
 
 @layer base {
+  /* `outline-ring/70`, not `/50`: the ring token is near-black in light and a
+     light grey in dark, so the alpha has to clear 3:1 (SC 1.4.11) against both.
+     /50 reads 3.41:1 in light but only 2.61:1 in dark. */
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring/70;
   }
 
   body {

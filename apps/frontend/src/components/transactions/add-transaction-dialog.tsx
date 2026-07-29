@@ -163,7 +163,7 @@ export function AddTransactionDialog({
                 <span>Type</span>
                 <select
                   {...register("type")}
-                  className="bg-secondary focus-visible:bg-background focus-visible:ring-ring/15 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
+                  className="bg-secondary focus-visible:bg-background focus-visible:ring-ring/70 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
                 >
                   <option value="EXPENSE">Expense</option>
                   <option value="INCOME">Income</option>
@@ -192,7 +192,7 @@ export function AddTransactionDialog({
                 {...register("categoryId")}
                 disabled={!hasCategories}
                 aria-invalid={!!errors.categoryId}
-                className="bg-secondary focus-visible:bg-background focus-visible:ring-ring/15 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px] disabled:opacity-45"
+                className="bg-secondary focus-visible:bg-background focus-visible:ring-ring/70 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px] disabled:opacity-45"
               >
                 {!hasCategories && <option value="">No categories available</option>}
                 {categories.map((category) => (

@@ -11,8 +11,9 @@ import type { EmojiStyle } from "emoji-picker-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { Dialog } from "radix-ui";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ interface CategoryFormProps {
 
 function CategoryForm({ category, error, isPending, onCancel, onSubmit }: CategoryFormProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerId = `category-icon-picker-${category?.id ?? "new"}`;
   const {
     register,
     handleSubmit,
@@ -78,7 +80,7 @@ function CategoryForm({ category, error, isPending, onCancel, onSubmit }: Catego
         </label>
         <input
           id={`category-name-${category?.id ?? "new"}`}
-          className="bg-background placeholder:text-muted-foreground/80 focus-visible:ring-ring/15 h-10 w-full rounded-full border border-transparent px-4 text-sm transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
+          className="bg-background placeholder:text-muted-foreground focus-visible:ring-ring/70 h-10 w-full rounded-full border border-transparent px-4 text-sm transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
           placeholder="Groceries, Rent, Salary…"
           {...register("name")}
         />
@@ -112,13 +114,20 @@ function CategoryForm({ category, error, isPending, onCancel, onSubmit }: Catego
         <div className="space-y-2">
           <span className="block text-[0.8125rem] font-semibold">Icon</span>
           <div className="flex items-center gap-2">
+            {/* The visible content is an emoji (or a bare "＋"), which is the
+                whole accessible name without an explicit one — so the button
+                announces as "＋" or as the emoji itself. `aria-controls` is set
+                only while open, because the picker is unmounted when closed and
+                pointing at an absent id is worse than omitting the attribute. */}
             <button
               type="button"
               aria-expanded={pickerOpen}
+              aria-controls={pickerOpen ? pickerId : undefined}
+              aria-label={icon ? `Change icon, currently ${icon}` : "Choose an icon"}
               onClick={() => setPickerOpen((open) => !open)}
-              className="bg-background focus-visible:ring-ring/25 flex size-10 shrink-0 items-center justify-center rounded-full text-lg shadow-sm transition-transform outline-none hover:scale-105 focus-visible:ring-[3px]"
+              className="bg-background focus-visible:ring-ring/70 flex size-10 shrink-0 items-center justify-center rounded-full text-lg shadow-sm transition-transform outline-none hover:scale-105 focus-visible:ring-[3px]"
             >
-              {icon ?? "＋"}
+              <span aria-hidden>{icon ?? "＋"}</span>
             </button>
             <Button
               type="button"
@@ -137,7 +146,7 @@ function CategoryForm({ category, error, isPending, onCancel, onSubmit }: Catego
       </div>
 
       {pickerOpen && (
-        <div className="max-w-full overflow-hidden rounded-2xl">
+        <div id={pickerId} className="max-w-full overflow-hidden rounded-2xl">
           <EmojiPicker
             emojiStyle={"native" as EmojiStyle}
             width="100%"
@@ -176,6 +185,16 @@ export default function CategoriesPage() {
   const [editing, setEditing] = useState<CategoryListItemDto | null>(null);
   const [deleting, setDeleting] = useState<CategoryListItemDto | null>(null);
   const [newFormKey, setNewFormKey] = useState(0);
+  /**
+   * Which row opened the delete dialog. Radix returns focus to its
+   * `Dialog.Trigger` on close, but this dialog is shared by every row and opened
+   * from state rather than from a trigger, so there is nothing for it to return
+   * to — focus lands on `<body>` and the reader loses their place in the list.
+   * Holding the button here is what makes `onCloseAutoFocus` able to put it back.
+   */
+  const deleteTriggerRef = useRef<HTMLButtonElement | null>(null);
+  /** Where focus goes when that button no longer exists — see `onCloseAutoFocus`. */
+  const listHeadingRef = useRef<HTMLHeadingElement | null>(null);
 
   const { data: categories, isPending, error } = useQuery(categoriesQueryOptions);
 
@@ -267,7 +286,15 @@ export default function CategoriesPage() {
       <section aria-labelledby="category-list-heading" className="space-y-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 id="category-list-heading" className="text-xl font-semibold">
+            {/* `tabIndex={-1}` so the delete dialog can hand focus back here
+                when the row it was opened from no longer exists. Not reachable
+                by Tab; only programmatically. */}
+            <h2
+              id="category-list-heading"
+              ref={listHeadingRef}
+              tabIndex={-1}
+              className="text-xl font-semibold focus:outline-none"
+            >
               Your categories
             </h2>
             {categories && (
@@ -281,7 +308,7 @@ export default function CategoriesPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search by name"
-              className="bg-secondary placeholder:text-muted-foreground/80 focus-visible:bg-background focus-visible:ring-ring/15 h-10 w-56 rounded-full border border-transparent px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
+              className="bg-secondary placeholder:text-muted-foreground focus-visible:bg-background focus-visible:ring-ring/70 h-10 w-56 rounded-full border border-transparent px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
             />
           </label>
         </div>
@@ -340,7 +367,14 @@ export default function CategoriesPage() {
                     size="sm"
                     variant="ghost"
                     className="hover:text-destructive"
-                    onClick={() => setDeleting(category)}
+                    onClick={(event) => {
+                      // Clear any failure left from a previous attempt, or the
+                      // dialog opens already showing an error about a category
+                      // the reader is no longer looking at.
+                      deleteMutation.reset();
+                      deleteTriggerRef.current = event.currentTarget;
+                      setDeleting(category);
+                    }}
                   >
                     Delete
                   </Button>
@@ -360,53 +394,86 @@ export default function CategoriesPage() {
         </div>
       </section>
 
-      {deleting && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-[2px]"
-          role="presentation"
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-category-title"
-            className="bg-background rounded-panel shadow-panel w-full max-w-md space-y-4 p-7"
+      {/* Radix rather than a hand-rolled overlay: `role="dialog"` plus
+          `aria-modal` is a promise about behaviour, not a label. The previous
+          version made that promise and kept none of it — focus never entered the
+          dialog, Tab walked straight back out into the page that `aria-modal`
+          had just told assistive tech to ignore, Escape did nothing and focus
+          was never restored. Dialog.Root supplies all of it. */}
+      <Dialog.Root
+        open={deleting !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleting(null);
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/25 backdrop-blur-[2px]" />
+          <Dialog.Content
+            // No `id` here: Radix generates one and points the trigger's
+            // `aria-controls` at it, and it spreads caller props last.
+            className="bg-background rounded-panel shadow-panel fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 space-y-4 p-7 focus:outline-none"
+            // A delete in flight should not be dismissable out from under the
+            // request; the buttons are already disabled for the same reason.
+            onEscapeKeyDown={(event) => {
+              if (deleteMutation.isPending) event.preventDefault();
+            }}
+            onInteractOutside={(event) => {
+              if (deleteMutation.isPending) event.preventDefault();
+            }}
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              // On cancel the row survives and its button takes focus back. On a
+              // successful delete it does not: `onSuccess` awaits the
+              // invalidation, so the collection has already refetched without
+              // this category and the held button is detached by the time we get
+              // here — and `focus()` on a detached node is a silent no-op that
+              // drops the reader on `<body>`. The heading is the nearest thing
+              // still on screen.
+              const trigger = deleteTriggerRef.current;
+              if (trigger?.isConnected) {
+                trigger.focus();
+              } else {
+                listHeadingRef.current?.focus();
+              }
+            }}
           >
-            <h2 id="delete-category-title" className="text-xl font-semibold">
-              Delete {deleting.name}?
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              {deleting.transactionCount > 0
-                ? `This category has ${deleting.transactionCount} ${deleting.transactionCount === 1 ? "transaction" : "transactions"} and cannot be deleted until they are recategorized or removed.`
-                : "This category has no transactions and can be safely deleted."}
-            </p>
-            {deleteMutation.error && (
-              <p className="text-destructive text-[0.8125rem]" role="alert">
-                {deleteMutation.error instanceof ApiError
-                  ? deleteMutation.error.message
-                  : "Could not delete category"}
-              </p>
+            {deleting && (
+              <>
+                <Dialog.Title className="text-xl font-semibold">
+                  Delete {deleting.name}?
+                </Dialog.Title>
+                <Dialog.Description className="text-muted-foreground text-sm">
+                  {deleting.transactionCount > 0
+                    ? `This category has ${deleting.transactionCount} ${deleting.transactionCount === 1 ? "transaction" : "transactions"} and cannot be deleted until they are recategorized or removed.`
+                    : "This category has no transactions and can be safely deleted."}
+                </Dialog.Description>
+                {deleteMutation.error && (
+                  <p className="text-destructive text-[0.8125rem]" role="alert">
+                    {deleteMutation.error instanceof ApiError
+                      ? deleteMutation.error.message
+                      : "Could not delete category"}
+                  </p>
+                )}
+                <div className="flex justify-end gap-2 pt-1">
+                  <Dialog.Close asChild>
+                    <Button type="button" variant="ghost" disabled={deleteMutation.isPending}>
+                      Cancel
+                    </Button>
+                  </Dialog.Close>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => deleteMutation.mutate(deleting.id)}
+                    disabled={deleteMutation.isPending}
+                  >
+                    {deleteMutation.isPending ? "Deleting…" : "Delete category"}
+                  </Button>
+                </div>
+              </>
             )}
-            <div className="flex justify-end gap-2 pt-1">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setDeleting(null)}
-                disabled={deleteMutation.isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => deleteMutation.mutate(deleting.id)}
-                disabled={deleteMutation.isPending}
-              >
-                {deleteMutation.isPending ? "Deleting…" : "Delete category"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </main>
   );
 }

@@ -14,8 +14,11 @@ const alertVariants = cva(
     variants: {
       variant: {
         default: "bg-secondary text-foreground",
+        // The description keeps `text-destructive` at full opacity: at /90 over
+        // the /8 tint it measures 4.30:1 and misses SC 1.4.3, and this is the
+        // error text on every auth form and all three profile forms.
         destructive:
-          "bg-destructive/8 text-destructive *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current",
+          "bg-destructive/8 text-destructive *:data-[slot=alert-description]:text-destructive [&>svg]:text-current",
       },
     },
     defaultVariants: {

@@ -181,7 +181,10 @@ export default function DashboardPage() {
       <section aria-label={`Financial summary for ${monthLabel}`}>
         {summaryQuery.error &&
           !(summaryQuery.error instanceof ApiError && summaryQuery.error.isUnauthorized) && (
-            <div className="bg-destructive/8 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
+            <div
+              role="alert"
+              className="bg-destructive/8 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4"
+            >
               <p className="text-destructive text-sm">
                 {summaryQuery.error instanceof ApiError
                   ? summaryQuery.error.message

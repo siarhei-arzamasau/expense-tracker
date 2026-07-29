@@ -102,6 +102,14 @@ to say "this dialog has no description" (`app-shell.tsx`).
 **`totalPages` is `Math.ceil(totalItems / pageSize)` and is therefore 0, not 1, for an empty result
 set.** Render the pager from `totalPages > 1`, never from a truthiness check.
 
+**`src/app/icon.svg` holds hex literals, and that is the one place a hex is not a bug.** It is served
+as its own document by the Next.js file convention, so it never sees `globals.css` and cannot read
+`--primary`. Its `#15171b` and `#ffffff` are a hand-copy of `--primary` / `--primary-foreground`, and
+its glyph is the same lucide `WalletCards` the `Wordmark` badge uses — repointing the palette means
+editing this file by hand, because nothing in the build will tell you it drifted. It also fixes what
+would otherwise be a `/favicon.ico` 404 on every route: the `<link rel="icon">` Next.js generates
+from it is what stops the browser falling back to a file this app does not ship.
+
 ## Conventions
 
 - Any category mutation must invalidate `["transactions"]` as well as `["categories"]` (`src/app/(app)/categories/page.tsx`). `TransactionDto` carries a snapshot of its category, so without the second invalidation a renamed or recoloured category keeps rendering stale in the transactions table.

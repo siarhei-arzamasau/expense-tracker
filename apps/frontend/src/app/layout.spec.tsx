@@ -18,7 +18,7 @@ describe("RootLayout", () => {
 
   it("exports the application title and description", () => {
     expect(metadata).toMatchObject({
-      title: "Expense Tracker",
+      title: { default: "Expense Tracker", template: "%s · Expense Tracker" },
       description: "Track where the money goes",
     });
   });

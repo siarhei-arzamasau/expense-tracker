@@ -69,7 +69,9 @@ function SignedAmount({ transaction }: { transaction: TransactionDto }) {
 
 function TransactionListSkeleton() {
   return (
-    <div className="space-y-2" aria-label="Loading transactions" aria-busy="true">
+    // `role="status"` is what makes the label reachable: a bare <div> maps to
+    // role `generic`, where `aria-label` is prohibited and simply dropped.
+    <div className="space-y-2" role="status" aria-label="Loading transactions" aria-busy="true">
       {Array.from({ length: 5 }, (_, index) => (
         <div key={index} className="flex animate-pulse items-center gap-4 rounded-2xl px-3 py-3.5">
           <div className="bg-secondary size-9 shrink-0 rounded-xl" />

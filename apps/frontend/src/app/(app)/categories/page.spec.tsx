@@ -222,6 +222,103 @@ describe("CategoriesPage", () => {
     });
   });
 
+  describe("delete confirmation dialog", () => {
+    /**
+     * This dialog was hand-rolled, and carried `role="dialog"` with
+     * `aria-modal="true"` while implementing none of what those promise —
+     * Escape did nothing, Tab walked out of the dialog into the page
+     * `aria-modal` had just told assistive tech to ignore, and focus was never
+     * restored. It is a Radix `Dialog` now, and every one of those behaviours is
+     * invisible to `tsc` and to Oxlint, so they are pinned here instead.
+     */
+    it("closes on Escape and returns focus to the Delete button that opened it", async () => {
+      const { user } = renderPage();
+      await screen.findByText("Rent");
+
+      const trigger = within(rowFor("Rent")).getByRole("button", { name: "Delete" });
+      await user.click(trigger);
+      expect(await screen.findByRole("dialog")).toBeInTheDocument();
+
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(trigger).toHaveFocus();
+      expect(mocks.deleteCategory).not.toHaveBeenCalled();
+    });
+
+    /**
+     * The cancel path can return focus to the button that opened the dialog,
+     * because that row is still there. A successful delete cannot: the
+     * invalidation refetches the collection without the deleted category, so the
+     * row unmounts and the held button is detached — and `focus()` on a detached
+     * node silently does nothing, dropping the reader on `<body>`. The fallback
+     * is the list heading, which is the nearest thing still on screen.
+     */
+    it("falls back to the list heading when the deleted row is gone", async () => {
+      mocks.listCategories.mockReset();
+      mocks.listCategories.mockResolvedValueOnce([GROCERIES, RENT]);
+      mocks.listCategories.mockResolvedValue([GROCERIES]);
+
+      const { user } = renderPage();
+      await screen.findByText("Rent");
+
+      await user.click(within(rowFor("Rent")).getByRole("button", { name: "Delete" }));
+      await user.click(await screen.findByRole("button", { name: "Delete category" }));
+
+      await waitFor(() => expect(screen.queryByText("Rent")).not.toBeInTheDocument());
+      await waitFor(() =>
+        expect(screen.getByRole("heading", { name: "Your categories" })).toHaveFocus(),
+      );
+    });
+
+    it("moves focus into the dialog instead of leaving it on the page behind", async () => {
+      const { user } = renderPage();
+      await screen.findByText("Rent");
+
+      await user.click(within(rowFor("Rent")).getByRole("button", { name: "Delete" }));
+
+      const dialog = await screen.findByRole("dialog");
+      // `activeElement` is typed `Element | null`; the matcher wants an
+      // HTMLElement, and only `typecheck` sees the difference — Vitest strips
+      // types without checking them.
+      await waitFor(() =>
+        expect(dialog).toContainElement(document.activeElement as HTMLElement | null),
+      );
+    });
+
+    // The accessible name comes from Dialog.Title and the description from
+    // Dialog.Description, which is what wires `aria-labelledby` and
+    // `aria-describedby` without either id being written by hand.
+    it("takes its accessible name from the heading and its description from the count", async () => {
+      const { user } = renderPage();
+      await screen.findByText("Rent");
+
+      await user.click(within(rowFor("Rent")).getByRole("button", { name: "Delete" }));
+
+      const dialog = await screen.findByRole("dialog", { name: "Delete Rent?" });
+      expect(dialog).toHaveAccessibleDescription(/has 1 transaction and cannot be deleted/);
+    });
+  });
+
+  describe("icon picker", () => {
+    // The button's only visible content is an emoji, or a bare "＋" before one
+    // is chosen — so without an explicit label its accessible name is that
+    // character, which names nothing.
+    it("names the icon button in both its empty and chosen states", async () => {
+      const { user } = renderPage();
+      await screen.findByText("Groceries");
+
+      const addForm = formWithSubmit("Add category");
+      expect(within(addForm).getByRole("button", { name: "Choose an icon" })).toBeInTheDocument();
+
+      await user.click(within(rowFor("Groceries")).getByRole("button", { name: "Edit" }));
+      const editForm = formWithSubmit("Save changes");
+      expect(
+        within(editForm).getByRole("button", { name: "Change icon, currently 🛒" }),
+      ).toBeInTheDocument();
+    });
+  });
+
   describe("transaction counts", () => {
     it("singularises a count of one", async () => {
       renderPage();

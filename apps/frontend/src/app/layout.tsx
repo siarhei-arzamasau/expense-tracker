@@ -26,8 +26,15 @@ const manrope = Manrope({
   display: "swap",
 });
 
+/**
+ * `template` rather than a bare string, because every route below this one is a
+ * client component and so cannot export `metadata` of its own — each names
+ * itself from a sibling `layout.tsx` instead, and the template is what keeps the
+ * product name on the end of all of them. `default` covers any route that names
+ * nothing.
+ */
 export const metadata: Metadata = {
-  title: "Expense Tracker",
+  title: { default: "Expense Tracker", template: "%s · Expense Tracker" },
   description: "Track where the money goes",
 };
 

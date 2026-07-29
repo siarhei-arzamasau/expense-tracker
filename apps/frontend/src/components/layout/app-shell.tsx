@@ -59,7 +59,7 @@ function Wordmark({ className = "" }: { className?: string }) {
   return (
     <Link
       href="/"
-      className={`focus-visible:ring-ring/25 group flex items-center gap-2.5 rounded-full outline-none focus-visible:ring-[3px] ${className}`}
+      className={`focus-visible:ring-ring/70 group flex items-center gap-2.5 rounded-full outline-none focus-visible:ring-[3px] ${className}`}
     >
       <span className="bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-xl">
         <WalletCards aria-hidden className="size-[1.125rem]" />
@@ -93,7 +93,7 @@ function Navigation({ pathname, onNavigate }: NavigationProps) {
             href={href}
             aria-current={active ? "page" : undefined}
             onClick={onNavigate}
-            className={`focus-visible:ring-ring/25 group flex items-center gap-3 rounded-2xl py-2 pr-4 pl-2 text-sm transition-colors outline-none focus-visible:ring-[3px] ${
+            className={`focus-visible:ring-ring/70 group flex items-center gap-3 rounded-2xl py-2 pr-4 pl-2 text-sm transition-colors outline-none focus-visible:ring-[3px] ${
               active
                 ? "bg-secondary text-foreground font-semibold"
                 : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground font-medium"
@@ -213,6 +213,19 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen p-3 sm:p-4 lg:p-6">
+      {/* First focusable element on every protected route. Without it a keyboard
+          user crosses the wordmark, four nav links and the account card before
+          reaching the page itself, on every navigation. `sr-only` until focused
+          so it costs the layout nothing. */}
+      <a
+        href="#main-content"
+        // `focus:fixed`, not `focus:absolute`: this wrapper establishes no
+        // containing block, so an absolute offset resolves against the document
+        // and puts the link off-screen for anyone who tabs while scrolled.
+        className="bg-primary text-primary-foreground focus-visible:ring-ring/70 sr-only rounded-full px-5 py-2.5 text-sm font-medium focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus-visible:ring-[3px]"
+      >
+        Skip to main content
+      </a>
       <div className="mx-auto flex w-full max-w-[100rem] gap-6">
         <aside className="hidden w-[16.5rem] shrink-0 md:block">
           {/* The sticky offset and the height have to match the canvas padding
@@ -248,7 +261,16 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Dialog.Trigger>
             </header>
 
-            <div className="panel min-w-0 flex-1">{children}</div>
+            {/* `tabIndex={-1}` is what makes the skip link actually move focus:
+                without it the browser scrolls here but leaves focus at the top,
+                so the next Tab returns to the navigation the reader just left. */}
+            <div
+              id="main-content"
+              tabIndex={-1}
+              className="panel min-w-0 flex-1 focus:outline-none"
+            >
+              {children}
+            </div>
           </div>
 
           <Dialog.Portal>

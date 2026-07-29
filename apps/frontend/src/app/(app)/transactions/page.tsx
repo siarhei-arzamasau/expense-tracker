@@ -97,7 +97,7 @@ function TransactionsPageContent() {
                 type="search"
                 defaultValue={search}
                 placeholder="e.g. groceries"
-                className="bg-background placeholder:text-muted-foreground/80 focus-visible:ring-ring/15 h-10 w-full rounded-full border border-transparent pr-4 pl-10 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
+                className="bg-background placeholder:text-muted-foreground focus-visible:ring-ring/70 h-10 w-full rounded-full border border-transparent pr-4 pl-10 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
               />
             </span>
           </label>
@@ -109,7 +109,7 @@ function TransactionsPageContent() {
               onChange={(event) =>
                 updateFilters({ type: event.target.value || undefined, page: 1 })
               }
-              className="bg-background focus-visible:ring-ring/15 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
+              className="bg-background focus-visible:ring-ring/70 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
             >
               <option value="">All types</option>
               <option value="INCOME">Income</option>
@@ -124,7 +124,7 @@ function TransactionsPageContent() {
               onChange={(event) =>
                 updateFilters({ categoryId: event.target.value || undefined, page: 1 })
               }
-              className="bg-background focus-visible:ring-ring/15 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
+              className="bg-background focus-visible:ring-ring/70 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
             >
               <option value="">All categories</option>
               {categoriesQuery.data?.map((category) => (
@@ -159,8 +159,12 @@ function TransactionsPageContent() {
           <h2 id="transaction-list-heading" className="text-xl font-semibold">
             Transaction history
           </h2>
+          {/* The filters replace the list without a navigation a screen reader
+              would announce — the selects submit on change and the search form
+              re-renders in place. This count is the only thing that states the
+              outcome, so it has to be the live region that reports it. */}
           {transactionsQuery.data && (
-            <p className="text-muted-foreground mt-1 text-sm">
+            <p className="text-muted-foreground mt-1 text-sm" aria-live="polite">
               {transactionsQuery.data.totalItems}{" "}
               {transactionsQuery.data.totalItems === 1 ? "result" : "results"}
             </p>

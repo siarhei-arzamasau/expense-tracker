@@ -74,6 +74,17 @@ spent sparingly — on the primary button, the sidebar account card, and the ico
   surfaces are `rounded-panel` or `rounded-2xl`. A `rounded-md` control is off-system.
 - **Inputs are filled rather than outlined**, and grow a border only on focus. Six outlined boxes in
   a row is the look this replaced.
+- **Contrast is measured against the canvas, not against a white panel.** `--muted-foreground` lands
+  on both and the canvas is the darker surface, so a value tuned on `bg-card` reads ~0.7 lower out on
+  the page — which is how `#6e727a` passed at 4.83:1 on a panel while failing at 4.16:1 under the
+  auth taglines. `#686c74` is the first value on that hue ramp clearing 4.5:1 on canvas, secondary
+  and card alike. Text tokens carry no alpha for the same reason: `muted-foreground/80` on a filled
+  input is 3.05:1.
+- **`focus-visible:ring-ring/70` is the one alpha that works in both themes.** `--ring` is near-black
+  in light and a light grey in dark, so the same utility has to clear 3:1 (SC 1.4.11) from opposite
+  directions: `/25` is 1.73:1 light, and `/55` still fails dark at 2.73:1. Every control pairs it
+  with `outline-none`, so lowering it leaves keyboard users with no visible focus at all — a
+  regression no screenshot review will catch.
 
 `AppShell` owns the canvas padding, and the sidebar's `sticky` offset and height are derived from it.
 Change one without the other and the sidebar drifts out of alignment as the page scrolls.
@@ -98,6 +109,21 @@ Add an export there when introducing another family — the alias does not gener
 `aria-controls` addressing an element that no longer exists, which is worse for a screen reader than
 having written nothing. The same ordering is why `aria-describedby={undefined}` is the supported way
 to say "this dialog has no description" (`app-shell.tsx`).
+
+**A Radix dialog opened from state rather than from a `Dialog.Trigger` has to restore focus itself.**
+Radix returns focus to the trigger on close; the category delete dialog is shared by every row and
+opened by calling `setDeleting`, so there is no trigger and focus lands on `<body>` — dropping the
+reader at the top of a list they were partway down. `categories/page.tsx` holds the clicked button in
+a ref and puts focus back from `onCloseAutoFocus`. `add-transaction-dialog.tsx` needs none of that
+because it has a real `Dialog.Trigger`.
+
+**A route's page title comes from a sibling `layout.tsx`, never from the page.** Every route but
+`/terms` and `/privacy` is a client component, and a client component cannot export `metadata` — so
+`login/layout.tsx` and its six siblings exist for no other reason than to name their route, with the
+root layout supplying the `%s · Expense Tracker` template that completes them. Deleting one fails
+nothing loudly: the route falls back to the root default, and its tab, its history entry and its
+screen reader page announcement all read "Expense Tracker" like every other route.
+`src/app/route-titles.spec.ts` is the only thing that catches it.
 
 **`totalPages` is `Math.ceil(totalItems / pageSize)` and is therefore 0, not 1, for an empty result
 set.** Render the pager from `totalPages > 1`, never from a truthiness check.

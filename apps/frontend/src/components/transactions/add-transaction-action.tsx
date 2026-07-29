@@ -23,8 +23,11 @@ export function AddTransactionAction() {
 
   if (categoriesQuery.isPending) {
     return (
+      // Without a role the label is dropped: `aria-label` is prohibited on the
+      // generic role a bare <div> maps to.
       <div
         className="bg-secondary h-10 w-40 animate-pulse rounded-full"
+        role="status"
         aria-label="Loading transaction categories"
       />
     );

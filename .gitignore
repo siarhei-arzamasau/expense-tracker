@@ -36,6 +36,9 @@ pnpm-debug.log*
 !**/.omc/skills/
 .omx/
 
+# playwright mcp output — screenshots, snapshots and console logs from browser runs
+.playwright-mcp/
+
 # editors / os
 .DS_Store
 .idea/

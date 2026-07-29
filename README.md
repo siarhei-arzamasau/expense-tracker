@@ -14,6 +14,28 @@ with a Next.js web application, a NestJS REST API, and PostgreSQL persistence th
 - Explore and test the API through Swagger UI.
 - Load a ready-to-use demo account with categories and recent transactions.
 
+## Screenshots
+
+Captured from the seeded demo account (`demo@example.com` / `password123`) after `pnpm db:seed`.
+
+### Dashboard
+
+Monthly balance, income, and expense totals with the most recent activity.
+
+![Dashboard showing monthly balance, income, and expense totals above a recent transactions list](docs/screenshots/dashboard.png)
+
+### Transactions
+
+Full history with description search plus type and category filters.
+
+![Transactions page with a search and filter bar above the full transaction history](docs/screenshots/transactions.png)
+
+### Categories
+
+Categories with a color and emoji icon, and a per-category transaction count.
+
+![Categories page with an add-category form above the existing categories and their transaction counts](docs/screenshots/categories.png)
+
 ## Technology stack
 
 | Area           | Technologies                                      |
@@ -46,6 +68,7 @@ expense-tracker/
 │   ├── database/                 # Prisma schema, migrations, seed, and generated client
 │   ├── shared/                   # Shared API types and route constants
 │   └── typescript-config/        # Shared TypeScript configurations
+├── docs/screenshots/             # Demo-account screenshots used by this README
 ├── docker-compose.yml            # Local PostgreSQL service
 ├── turbo.json                    # Monorepo task graph and environment passthrough
 └── pnpm-workspace.yaml           # Workspace packages and dependency build allowlist

@@ -310,3 +310,7 @@ This repository is a learning template, not a production-hardened service. Acces
 in `localStorage`; there is no refresh-token rotation, authentication rate limiting, email delivery,
 or token revocation after a password reset. Production deployments should address those boundaries
 before handling real user or financial data.
+
+## License
+
+Released under the [MIT License](LICENSE).

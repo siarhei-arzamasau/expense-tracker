@@ -59,6 +59,16 @@ Scoping to one package uses `pnpm --filter <name> <script>`, e.g. `pnpm --filter
 
 Seeded login: `demo@example.com` / `password123`.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` gates pull requests into `main` and pushes to `main` with two jobs: **Lint and static quality** (`format:check`, `lint`, `typecheck`) and **Tests and build** (`test`, `build`). No secrets, no Postgres service, backend e2e excluded.
+
+**Those two job names are public API.** Once branch protection requires them, a rename does not fail loudly — the old required check just stops reporting and every PR blocks forever on a check that no longer exists.
+
+The workflow sets a placeholder `DATABASE_URL` at the workflow level, and **both** jobs need it: `lint` and `test` each depend on `^build`, and `packages/database`'s build depends on `db:generate`, which aborts without the variable even though it never opens a connection. Node comes from `.nvmrc` and pnpm from `packageManager` — never restate either version in the workflow. `pnpm/action-setup` must run before `actions/setup-node`, because `cache: pnpm` shells out to `pnpm` to find the store.
+
+Oxfmt formats YAML, so the lint job format-checks the workflow running it. Run `pnpm format:check` after editing anything under `.github/workflows`.
+
 ## Architecture
 
 **Dependency direction is the load-bearing decision.** `packages/database` is a dependency of `apps/backend` **only** — never the frontend. The frontend talks to the backend over HTTP and imports types from `packages/shared`. This gives the generated Prisma client exactly one runtime consumer (NestJS, CommonJS), which is why `schema.prisma` can set `moduleFormat = "cjs"` and sidestep the ESM/CJS dual-format problem entirely. Do not add `@expense-tracker/database` to the frontend; add the type to `packages/shared` instead.

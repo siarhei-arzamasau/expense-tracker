@@ -140,7 +140,7 @@ describe("CategoriesService", () => {
       await service.update(USER_ID, CATEGORY_ID, { color: null });
 
       expect(prisma.category.update).toHaveBeenCalledWith({
-        where: { id: CATEGORY_ID },
+        where: { id: CATEGORY_ID, userId: USER_ID },
         data: { color: null },
       });
       expect(prisma.category.findUnique).not.toHaveBeenCalled();

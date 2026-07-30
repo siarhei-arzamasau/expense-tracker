@@ -4,11 +4,16 @@ import type { SchemaObject } from "@nestjs/swagger/dist/interfaces/open-api-spec
  * The OpenAPI shape of an error body, as Nest's built-in exception filter
  * renders it.
  *
- * There is no exception filter of our own — `main.ts` registers only the
- * `ValidationPipe` — so every 4xx here is `HttpException`'s default body:
- * `statusCode`, `message`, and an `error` reason phrase. `error` is optional
- * because `HttpException` omits it when the message *is* the reason phrase,
- * which is what `new UnauthorizedException()` produces.
+ * Every 4xx here is `HttpException`'s default body: `statusCode`, `message`, and
+ * an `error` reason phrase. `error` is optional because `HttpException` omits it
+ * when the message *is* the reason phrase, which is what
+ * `new UnauthorizedException()` produces.
+ *
+ * `PrismaExceptionFilter` is the only filter of our own, and it does not change
+ * this shape — it translates a Prisma constraint failure into the matching
+ * `HttpException` and hands that to `BaseExceptionFilter`, precisely so that a
+ * lost race renders the same body as a thrown 409 rather than a second dialect
+ * of error. That is asserted over HTTP in its spec; keep it true.
  *
  * `message` is typed as either a string or an array of strings because both
  * really occur, sometimes on the same route: the `ValidationPipe` reports one

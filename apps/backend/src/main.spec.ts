@@ -1,8 +1,11 @@
+import { Logger } from "@nestjs/common";
+
 const mockConfig = { get: jest.fn() };
 const mockApp = {
   get: jest.fn(),
   setGlobalPrefix: jest.fn(),
   useGlobalPipes: jest.fn(),
+  enableShutdownHooks: jest.fn(),
   enableCors: jest.fn(),
   listen: jest.fn(),
 };
@@ -18,7 +21,15 @@ const mockBuilder = {
 const mockCreateDocument = jest.fn();
 const mockSwaggerSetup = jest.fn();
 
-jest.mock("@nestjs/core", () => ({ NestFactory: { create: mockCreate } }));
+// Spread the real module rather than replacing it: app.module.ts now imports
+// APP_FILTER and APP_INTERCEPTOR from here, and PrismaExceptionFilter extends
+// BaseExceptionFilter, so a bare stub makes that `extends undefined` and the
+// import of ./main throws before bootstrap runs.
+jest.mock("@nestjs/core", () => {
+  const actual = jest.requireActual<typeof import("@nestjs/core")>("@nestjs/core");
+
+  return { ...actual, NestFactory: { create: mockCreate } };
+});
 jest.mock("@nestjs/swagger", () => {
   const actual = jest.requireActual<typeof import("@nestjs/swagger")>("@nestjs/swagger");
 
@@ -55,7 +66,7 @@ describe("bootstrap", () => {
   });
 
   it("installs the API prefix, strict validation, CORS, Swagger, and configured port", async () => {
-    const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    const log = jest.spyOn(Logger.prototype, "log").mockImplementation(() => undefined);
 
     await import("./main");
     await new Promise<void>((resolve) => setImmediate(resolve));
@@ -71,6 +82,9 @@ describe("bootstrap", () => {
         }),
       }),
     );
+    // Without this, PrismaService.onModuleDestroy never runs on SIGTERM and the
+    // pg pool is not drained on shutdown.
+    expect(mockApp.enableShutdownHooks).toHaveBeenCalledWith();
     expect(mockApp.enableCors).toHaveBeenCalledWith({
       origin: "https://app.example.com",
       credentials: true,
@@ -78,7 +92,8 @@ describe("bootstrap", () => {
     expect(mockSwaggerSetup).toHaveBeenCalledWith("api/docs", mockApp, expect.any(Function));
     expect(mockCreateDocument).toHaveBeenCalledWith(mockApp, mockSwaggerConfig);
     expect(mockApp.listen).toHaveBeenCalledWith(4010);
+    expect(log).toHaveBeenCalledWith("API listening on http://localhost:4010/api");
 
-    warn.mockRestore();
+    log.mockRestore();
   });
 });

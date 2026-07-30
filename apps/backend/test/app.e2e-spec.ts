@@ -1,13 +1,19 @@
-import { ValidationPipe, type INestApplication } from "@nestjs/common";
+import type { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 
 import { AppModule } from "../src/app.module";
+import { configureApp } from "../src/configure-app";
 
 /**
  * Boots the real app, so it needs a reachable database:
  *   docker compose up -d && pnpm db:migrate
  * Run with `pnpm test:e2e`. `pnpm test` runs the unit specs only.
+ *
+ * Request handling is configured by `configureApp`, the same function `main.ts`
+ * calls, so this suite cannot pass against a laxer server than the one that
+ * ships. Building a `ValidationPipe` here instead is what previously left the
+ * strict-validation 400s untested.
  */
 describe("App (e2e)", () => {
   let app: INestApplication;
@@ -16,8 +22,7 @@ describe("App (e2e)", () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
 
     app = moduleRef.createNestApplication();
-    app.setGlobalPrefix("api");
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    configureApp(app);
     await app.init();
   });
 

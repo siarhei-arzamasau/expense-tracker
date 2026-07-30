@@ -1,9 +1,10 @@
-import { ValidationPipe } from "@nestjs/common";
+import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 
 import { AppModule } from "./app.module";
+import { configureApp } from "./configure-app";
 
 /**
  * Creates and starts the API process.
@@ -17,20 +18,17 @@ import { AppModule } from "./app.module";
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
+  const logger = new Logger("Bootstrap");
 
-  app.setGlobalPrefix("api");
+  // Shared with the e2e harness so both run the same pipe. See configure-app.ts.
+  configureApp(app);
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      // Strip properties with no decorator instead of silently persisting them.
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      // Required for @Type()/implicit conversion: query params and JSON numbers
-      // arrive as strings otherwise.
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
+  // Without this, Nest never calls onModuleDestroy: the hooks only run from
+  // app.close(), and nothing closes the app on a signal. `PrismaService`
+  // implements OnModuleDestroy to drain the pg pool, so a SIGTERM from
+  // `docker stop` or a deployment would otherwise kill the process with
+  // connections still open and in-flight requests dropped.
+  app.enableShutdownHooks();
 
   app.enableCors({
     origin: config.get<string>("WEB_ORIGIN", "http://localhost:3000"),
@@ -48,8 +46,8 @@ async function bootstrap(): Promise<void> {
   const port = config.get<number>("API_PORT", 3001);
   await app.listen(port);
 
-  console.warn(`API listening on http://localhost:${port}/api`);
-  console.warn(`Swagger UI on http://localhost:${port}/api/docs`);
+  logger.log(`API listening on http://localhost:${port}/api`);
+  logger.log(`Swagger UI on http://localhost:${port}/api/docs`);
 }
 
 void bootstrap();

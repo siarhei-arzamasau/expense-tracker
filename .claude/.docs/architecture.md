@@ -75,17 +75,24 @@ generation is a distinct cached task whose output is `packages/database/src/gene
 `apps/backend/src/main.ts` is the HTTP composition root. At startup it:
 
 1. Creates the Nest application from `AppModule`.
-2. Applies the global `/api` route prefix.
-3. Installs a global `ValidationPipe` with transformation, whitelisting, and rejection of unknown
-   properties.
+2. Calls `configureApp`, which applies the `/api` route prefix and the global `ValidationPipe` with
+   transformation, whitelisting, and rejection of unknown properties.
+3. Enables shutdown hooks, so Nest runs `PrismaService.onModuleDestroy` on a signal.
 4. Enables CORS for `WEB_ORIGIN`, defaulting to `http://localhost:3000`.
 5. Generates the OpenAPI document and mounts Swagger UI at `/api/docs`.
 6. Listens on `API_PORT`, defaulting to `3001`.
 
+Steps 1 and 2 are split deliberately. `apps/backend/src/configure-app.ts` holds everything that
+decides whether a request is accepted, and `test/app.e2e-spec.ts` calls the same function, so the e2e
+suite cannot pass against a laxer server than the one that ships.
+
 `AppModule` globally loads configuration from the repository root `.env`, registers
-`CqrsModule.forRoot()`, and composes the Prisma, auth, users, transactions, and categories modules.
-The `.env` path is anchored to the compiled module location because the backend can be started from
-different working directories.
+`CqrsModule.forRoot()`, composes the Prisma, auth, users, transactions, and categories modules, and
+registers two global providers — `PrismaExceptionFilter` via `APP_FILTER` and `LoggingInterceptor`
+via `APP_INTERCEPTOR`. They live in the module rather than in `main.ts` so that every bootstrap,
+including the e2e harness, gets them without repeating the registration. The `.env` path is anchored
+to the compiled module location because the backend can be started from different working
+directories.
 
 ### Configuration ownership
 
@@ -120,6 +127,7 @@ A typical protected request follows this path:
 ```text
 HTTP request
   │
+  ├─ LoggingInterceptor starts timing the request
   ├─ JwtAuthGuard validates the bearer token
   ├─ CurrentUser decorator exposes the authenticated user id
   ├─ ValidationPipe validates and transforms params/query/body DTOs
@@ -135,8 +143,18 @@ PostgreSQL
 DTO mapping to JSON-safe values
 ```
 
-Nest's built-in exception handling renders errors as `statusCode`, `message`, and usually `error`.
-There is no custom exception filter.
+Errors render as `statusCode`, `message`, and usually `error`. `PrismaExceptionFilter` is the only
+custom filter and it preserves that shape: it translates the three Prisma constraint failures a
+request can provoke — P2002 to 409, P2003 to 400, P2025 to 404 — into the matching `HttpException`
+and lets Nest's built-in filter write the body. It exists because every check-then-write path
+(category and user uniqueness, the transaction's category check) answered a bare 500 when a
+concurrent request won the race, for a case the endpoint documents as 409 or 400. A Prisma code the
+filter does not recognise is still a 500, deliberately.
+
+`LoggingInterceptor` writes one line per request — method, path, status, duration — and reads no
+body, headers, or route parameters, because bodies here carry plaintext passwords and reset tokens.
+Note that interceptors run before exception filters, so its failure branch reports the error as
+thrown while the filter logs the status it mapped to.
 
 ### Authentication flow
 

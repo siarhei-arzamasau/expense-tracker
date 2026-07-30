@@ -64,6 +64,13 @@ Nest's built-in exception handling returns:
 `message` is either a string or an array of strings. `error` may be omitted when it would duplicate
 the message.
 
+Database constraint failures use the same shape. Where an endpoint checks a rule and then writes —
+category or account uniqueness, a transaction's category — a concurrent request can win the gap and
+leave the check stale. `PrismaExceptionFilter` maps what Postgres then rejects onto the status the
+endpoint already documents (`409` for a duplicate, `400` for a missing reference, `404` for a row
+that has gone) instead of the `500` these paths used to answer. The message is generic in that case,
+since the specific one comes from the endpoint's own pre-check on the ordinary path.
+
 ### Ownership behavior
 
 All category and transaction operations are scoped to the authenticated user. Requests never

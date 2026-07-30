@@ -103,7 +103,9 @@ export class CategoriesService {
     }
 
     const category = await this.prisma.category.update({
-      where: { id },
+      // Scoped by userId as well as id, matching the deletes: ownership is
+      // settled by the statement rather than only by the findFirst above.
+      where: { id, userId },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.color !== undefined && { color: dto.color }),

@@ -1,10 +1,13 @@
 import { MODULE_METADATA } from "@nestjs/common/constants";
 import { ConfigModule } from "@nestjs/config";
+import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { CqrsModule } from "@nestjs/cqrs";
 
 import { AppModule } from "./app.module";
 import { AuthModule } from "./auth/auth.module";
 import { CategoriesModule } from "./categories/categories.module";
+import { PrismaExceptionFilter } from "./common/filters/prisma-exception.filter";
+import { LoggingInterceptor } from "./common/interceptors/logging.interceptor";
 import { PrismaModule } from "./prisma/prisma.module";
 import { TransactionsModule } from "./transactions/transactions.module";
 import { UsersModule } from "./users/users.module";
@@ -37,6 +40,22 @@ describe("AppModule", () => {
         UsersModule,
         TransactionsModule,
         CategoriesModule,
+      ]),
+    );
+  });
+
+  /**
+   * Registered here rather than in `main.ts` on purpose: a filter installed by
+   * each bootstrap separately is the one the e2e harness ends up missing. This
+   * test is what keeps that decision from being quietly reversed.
+   */
+  it("registers the Prisma filter and request logging for every bootstrap", () => {
+    const providers = Reflect.getMetadata(MODULE_METADATA.PROVIDERS, AppModule) as unknown[];
+
+    expect(providers).toEqual(
+      expect.arrayContaining([
+        { provide: APP_FILTER, useClass: PrismaExceptionFilter },
+        { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
       ]),
     );
   });

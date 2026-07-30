@@ -217,7 +217,12 @@ export class TransactionsService {
     await this.assertCategoryBelongsToUser(userId, dto.categoryId);
 
     const transaction = await this.prisma.transaction.update({
-      where: { id },
+      // `userId` alongside the id, even though findOne above already proved
+      // ownership: it keeps every write in this service scoped in the statement
+      // itself, the way the deletes are, rather than in a preceding check. If
+      // the row stops matching, Prisma raises P2025 and PrismaExceptionFilter
+      // answers 404 — the same status this method already documents.
+      where: { id, userId },
       data: {
         ...(dto.amount !== undefined && { amount: dto.amount.toFixed(2) }),
         ...(dto.type !== undefined && { type: dto.type }),

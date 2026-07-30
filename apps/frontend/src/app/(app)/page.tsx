@@ -14,11 +14,17 @@ import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
 import { flowShares, formatAmount, formatShare } from "@/lib/format";
 import {
+  currentMonthSummaryQueryOptions,
   transactionsQueryOptions,
-  transactionSummaryQueryOptions,
 } from "@/lib/queries/transactions";
 
 type Tone = "balance" | "income" | "expense";
+
+/** Held rather than rebuilt each render — see the note in `lib/format.ts`. */
+const monthLabelFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  year: "numeric",
+});
 
 const TONE_CLASSES: Record<Tone, { surface: string; ink: string; track: string; fill: string }> = {
   balance: {
@@ -144,15 +150,10 @@ function SplitBar({ income, expense }: { income: number; expense: number }) {
 
 export default function DashboardPage() {
   const [page, setPage] = useState(1);
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
-  const monthLabel = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(
-    now,
-  );
+  const monthLabel = monthLabelFormatter.format(new Date());
 
   const transactionsQuery = useQuery(transactionsQueryOptions({ page }));
-  const summaryQuery = useQuery(transactionSummaryQueryOptions(month, year));
+  const summaryQuery = useQuery(currentMonthSummaryQueryOptions());
 
   // Pages can vanish underneath the reader, leaving an empty table and a pager
   // pointing past the end. Corrected during render, not in an effect: React

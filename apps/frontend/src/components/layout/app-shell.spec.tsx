@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   logout: vi.fn(),
   refetch: vi.fn(),
+  prefetchQuery: vi.fn<(options: { queryKey: unknown }) => Promise<void>>(),
   queryOptions: undefined as unknown,
   queryResult: {} as {
     data?: { id: string; email: string; name: string | null; createdAt: string };
@@ -26,6 +27,14 @@ vi.mock("@tanstack/react-query", () => ({
     mocks.queryOptions = options;
     return mocks.queryResult;
   },
+  useQueryClient: () => ({ prefetchQuery: mocks.prefetchQuery }),
+}));
+vi.mock("@/lib/queries/categories", () => ({
+  categoriesQueryOptions: { queryKey: ["categories"] },
+}));
+vi.mock("@/lib/queries/transactions", () => ({
+  transactionsQueryOptions: (query: unknown) => ({ queryKey: ["transactions", "list", query] }),
+  currentMonthSummaryQueryOptions: () => ({ queryKey: ["transactions", "summary"] }),
 }));
 vi.mock("next/navigation", () => ({
   usePathname: () => mocks.pathname,
@@ -69,6 +78,32 @@ describe("AppShell", () => {
     render(<AppShell>Private content</AppShell>);
 
     expect(mocks.queryOptions).toEqual(expect.objectContaining({ enabled: false }));
+  });
+
+  // The shell gates its children on `/auth/me`, so without this the page below
+  // could not even ask for its data until that resolved — two serial round trips
+  // on every cold load. The gate is unchanged and still hides the content; what
+  // is asserted here is only that the requests overlap.
+  it("starts the pages' own requests alongside the account rather than after it", () => {
+    mocks.queryResult = { data: undefined, error: null, isPending: true, refetch: mocks.refetch };
+
+    render(<AppShell>Private content</AppShell>);
+
+    expect(screen.queryByText("Private content")).not.toBeInTheDocument();
+    expect(mocks.prefetchQuery.mock.calls.map(([options]) => options.queryKey)).toEqual([
+      ["categories"],
+      ["transactions", "list", { page: 1 }],
+      ["transactions", "summary"],
+    ]);
+  });
+
+  it("prefetches nothing when there is no token to authorize the requests", () => {
+    mocks.token = null;
+    mocks.queryResult = { data: undefined, error: null, isPending: false, refetch: mocks.refetch };
+
+    render(<AppShell>Private content</AppShell>);
+
+    expect(mocks.prefetchQuery).not.toHaveBeenCalled();
   });
 
   it("shows the loading state while the current account is pending", () => {

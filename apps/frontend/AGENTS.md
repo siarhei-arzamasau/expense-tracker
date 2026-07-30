@@ -194,6 +194,16 @@ upstream fix and cannot be reached from CSS.
 **`totalPages` is `Math.ceil(totalItems / pageSize)` and is therefore 0, not 1, for an empty result
 set.** Render the pager from `totalPages > 1`, never from a truthiness check.
 
+**The `AppShell` prefetch is not a duplicate of the queries the pages already run.** The shell
+renders no children until `GET /auth/me` resolves, so a page's own `useQuery` cannot start before
+that round trip finishes — the prefetch is the only thing making the two overlap. Delete it and every
+cold load costs an extra round trip while nothing fails: no test, no type error, no console warning.
+It works only while the prefetched key matches the key the page later reads, which is why the summary
+goes through `currentMonthSummaryQueryOptions()` in `lib/queries/transactions.ts` instead of each side
+deriving its own month and year — derive them twice and the keys drift, leaving a wasted request and
+the waterfall exactly where it was. `/profile` reads none of the three and pays for them anyway; that
+is the accepted cost of the routes that do.
+
 **`src/app/icon.svg` holds hex literals, and that is the one place a hex is not a bug.** It is served
 as its own document by the Next.js file convention, so it never sees `globals.css` and cannot read
 `--primary`. Its `#15171b` and `#ffffff` are a hand-copy of `--primary` / `--primary-foreground`, and
@@ -207,7 +217,7 @@ from it is what stops the browser falling back to a file this app does not ship.
 - Any category mutation must invalidate `["transactions"]` as well as `["categories"]` (`src/app/(app)/categories/page.tsx`). `TransactionDto` carries a snapshot of its category, so without the second invalidation a renamed or recoloured category keeps rendering stale in the transactions table.
 - Transaction description, type, and category filters are server-side and page-aware. Their state lives in `/transactions` URL query parameters; changing a filter returns to page 1. Because that state is the address bar, it is untrusted input: `readTransactionQuery` in `lib/transaction-filters.ts` validates every parameter down to something the API accepts and drops the rest, rather than forwarding a hand-typed `?type=TRANSFER` and earning a 400. Category-name search remains client-side because the full category collection is already cached.
 - Any paginated list query sets `placeholderData: keepPreviousData`. Paging and filtering change the query key, and an unseen key resolves to `data: undefined` — which blanks the table _and_ unmounts the pager the reader just clicked, taking keyboard focus with it. `page` also has to be clamped when `totalPages` shrinks beneath it; the dashboard does this during render rather than in an effect, so the out-of-range page is never painted (Oxlint's `no-set-state-in-effect` will reject the effect form anyway).
-- Auth is a bearer token in `localStorage`, no refresh rotation, no rate limiting — deliberate learning-template simplifications documented in the README, not oversights to silently "fix." The protected shell waits for `GET /auth/me` before rendering account content.
+- Auth is a bearer token in `localStorage`, no refresh rotation, no rate limiting — deliberate learning-template simplifications documented in the README, not oversights to silently "fix." The protected shell waits for `GET /auth/me` before rendering account content — it does not wait before _requesting_ the rest, which is what the prefetch above is for. `authStorage.get()` is read during render and so holds the token in memory rather than touching synchronous `localStorage` each pass; every mutator keeps that copy in step, and a `storage` listener drops it when another tab writes the key, so a write that bypasses the mutators cannot leave this tab authorizing with a stale token.
 - **Sessions end two ways and there is exactly one handler for each.** Voluntary — the logout buttons, account deletion — goes through `useLogout()` (`lib/use-logout.ts`): clear the token, clear the query cache, `router.replace("/login")`. Involuntary is any 401 on an authenticated request, which `api-client` turns into `authStorage.expire()`; `Providers` answers that event with a full `window.location.replace`, because an expired token can surface from anywhere and only a hard navigation reliably tears down what was mid-flight. Do not add a per-page "on 401, redirect" effect — the global handler already fired and the two only race each other. `AppShell` owns one redirect and only one: no token at all, where no request was ever made for anything to notice.
 - Route paths come from `API_ROUTES` in `packages/shared`, so a rename on one side is a type error on the other.
 - `apiClient.patch` takes an `unknown` body, which will happily send a `null` the backend DTO does not admit. Match the DTO: `undefined` omits a field, `null` clears one, and only where the backend declares `string | null`.

@@ -1,4 +1,24 @@
 /**
+ * Building an `Intl` formatter is the expensive half of formatting; `.format()`
+ * is cheap. These are held rather than constructed per call because the
+ * transaction list renders the same page twice — the desktop table and the
+ * mobile list — so one render formatted every row's amount and date twice over,
+ * and each of those calls was building a formatter it then threw away.
+ *
+ * Keyed by currency, because `formatAmount` accepts one.
+ */
+const amountFormatters = new Map<string, Intl.NumberFormat>();
+
+function amountFormatter(currency: string): Intl.NumberFormat {
+  let formatter = amountFormatters.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat("en-US", { style: "currency", currency });
+    amountFormatters.set(currency, formatter);
+  }
+  return formatter;
+}
+
+/**
  * `amount` arrives from the API as a decimal string (see TransactionDto). Parsing
  * happens here, at the display boundary, and nowhere else.
  */
@@ -7,7 +27,7 @@ export function formatAmount(amount: string, currency = "USD"): string {
   if (Number.isNaN(value)) {
     return amount;
   }
-  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value);
+  return amountFormatter(currency).format(value);
 }
 
 /**
@@ -39,13 +59,15 @@ export function formatShare(share: number): string {
   return `${Math.round(share * 100)}%`;
 }
 
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  // Transaction dates are UTC calendar days in the API. Pinning the display
+  // zone prevents UTC midnight from appearing as the prior day west of UTC.
+  timeZone: "UTC",
+});
+
 export function formatDate(isoDate: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    // Transaction dates are UTC calendar days in the API. Pinning the display
-    // zone prevents UTC midnight from appearing as the prior day west of UTC.
-    timeZone: "UTC",
-  }).format(new Date(isoDate));
+  return dateFormatter.format(new Date(isoDate));
 }

@@ -8,7 +8,7 @@ import DashboardPage from "./page";
 
 const mocks = vi.hoisted(() => ({
   transactionOptions: vi.fn((query: { page: number }) => ({ kind: "transactions", query })),
-  summaryOptions: vi.fn((month: number, year: number) => ({ kind: "summary", month, year })),
+  summaryOptions: vi.fn(() => ({ kind: "summary" })),
   transactionRefetch: vi.fn(),
   summaryRefetch: vi.fn(),
   transactions: {} as {
@@ -31,7 +31,7 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 vi.mock("@/lib/queries/transactions", () => ({
   transactionsQueryOptions: mocks.transactionOptions,
-  transactionSummaryQueryOptions: mocks.summaryOptions,
+  currentMonthSummaryQueryOptions: mocks.summaryOptions,
 }));
 vi.mock("@/components/transactions", () => ({
   AddTransactionAction: () => <button type="button">Add transaction</button>,

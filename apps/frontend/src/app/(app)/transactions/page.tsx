@@ -44,14 +44,20 @@ function TransactionsPageContent() {
     router.push(href);
   };
 
+  // An effect rather than the dashboard's render-time clamp, because the page
+  // lives in the URL here and `router.replace` is not something render may do.
+  // The dependency is the serialized string, not the `searchParams` object: a
+  // new instance per render would re-run this on renders where the query did not
+  // actually change.
+  const searchParamsString = searchParams.toString();
   useEffect(() => {
     const totalPages = transactionsQuery.data?.totalPages ?? 0;
     if (totalPages > 0 && page > totalPages) {
-      const next = new URLSearchParams(searchParams.toString());
+      const next = new URLSearchParams(searchParamsString);
       next.set("page", String(totalPages));
       router.replace(`/transactions?${next}`);
     }
-  }, [page, router, searchParams, transactionsQuery.data?.totalPages]);
+  }, [page, router, searchParamsString, transactionsQuery.data?.totalPages]);
 
   const hasFilters = hasActiveFilters(query);
 

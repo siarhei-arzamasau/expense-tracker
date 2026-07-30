@@ -76,6 +76,21 @@ export function transactionSummaryQueryOptions(month: number, year: number) {
   });
 }
 
+/**
+ * The summary the dashboard shows: the month it is being viewed in.
+ *
+ * The month and year are derived here rather than at each call site because two
+ * places have to agree on them — `AppShell` prefetches this while `/auth/me` is
+ * in flight and the dashboard reads it a moment later. They must produce the
+ * same query key or the prefetch silently becomes a wasted request and the
+ * dashboard fetches again, which is exactly the waterfall the prefetch exists to
+ * remove and nothing would report it.
+ */
+export function currentMonthSummaryQueryOptions() {
+  const now = new Date();
+  return transactionSummaryQueryOptions(now.getMonth() + 1, now.getFullYear());
+}
+
 export function createTransaction(input: CreateTransactionInput): Promise<TransactionDto> {
   return apiClient.post<TransactionDto>(API_ROUTES.transactions.root, input);
 }

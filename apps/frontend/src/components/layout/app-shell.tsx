@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   LogOut,
@@ -19,6 +19,11 @@ import { Dialog } from "radix-ui";
 
 import { ApiError } from "@/lib/api-client";
 import { authStorage } from "@/lib/auth-storage";
+import { categoriesQueryOptions } from "@/lib/queries/categories";
+import {
+  currentMonthSummaryQueryOptions,
+  transactionsQueryOptions,
+} from "@/lib/queries/transactions";
 import { currentUserQueryOptions } from "@/lib/queries/user";
 import { useLogout } from "@/lib/use-logout";
 import { Button } from "@/components/ui/button";
@@ -155,6 +160,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const logout = useLogout();
+  const queryClient = useQueryClient();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const hasToken = authStorage.get() !== null;
 
@@ -172,6 +178,23 @@ export function AppShell({ children }: { children: ReactNode }) {
     ...currentUserQueryOptions,
     enabled: hasToken,
   });
+
+  // This shell renders no children until `GET /auth/me` resolves, so nothing
+  // below it could start a request of its own — which made every cold load two
+  // serial round trips, the account and then the page's data. Prefetching here
+  // overlaps them without touching what the gate renders: account content still
+  // waits for the user, but what it is about to ask for is already in flight.
+  //
+  // These three cover `/`, `/transactions` (unfiltered, page 1) and
+  // `/categories`. `/profile` reads none of them and pays for the requests; that
+  // was the accepted trade for the route people actually land on.
+  useEffect(() => {
+    if (!hasToken) return;
+
+    void queryClient.prefetchQuery(categoriesQueryOptions);
+    void queryClient.prefetchQuery(transactionsQueryOptions({ page: 1 }));
+    void queryClient.prefetchQuery(currentMonthSummaryQueryOptions());
+  }, [hasToken, queryClient]);
 
   if (!hasToken || userQuery.isPending) {
     return (

@@ -17,6 +17,14 @@
     "pnpm-lock.yaml",
     "packages/database/src/generated",
     "packages/database/prisma/migrations",
+    // Vendored third-party skills. Oxfmt formats markdown and JSON, and reformatting
+    // upstream's SKILL.md, rules/ and references/ would turn every re-install into a
+    // diff against our own formatting rather than against upstream.
+    ".claude/skills/git-commit",
+    ".claude/skills/nestjs-best-practices",
+    ".claude/skills/requesting-code-review",
+    ".claude/skills/ui-ux-pro-max",
+    ".claude/skills/vercel-react-best-practices",
   ],
   "sortImports": false,
   "sortTailwindcss": false,

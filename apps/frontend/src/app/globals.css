@@ -40,7 +40,15 @@
   --destructive: #b3402a;
   --destructive-foreground: #ffffff;
   --border: #e7e4dc;
-  --input: #ded9cf;
+  /* The boundary that identifies a control, so it answers to SC 1.4.11 rather
+     than to taste: it has to clear 3:1 against every surface a control sits on
+     — the white card, the `bg-secondary` fill of the control itself, and the
+     canvas. The previous #ded9cf read 1.41:1 on card, which left an empty input
+     and an unchecked checkbox with no perceivable edge at all. #8c8983 is the
+     lightest value on this warm-neutral ramp that clears all three (3.49 / 3.14
+     / 3.00). Inputs are still filled rather than outlined — the fill is what
+     carries the look — but the edge is now visible. */
+  --input: #8c8983;
   --ring: #15171b;
 
   /* Money tints. Each pairs a pastel fill with an ink dark enough to hold
@@ -81,7 +89,9 @@
   --destructive: #e2705a;
   --destructive-foreground: #15171b;
   --border: #2a2e35;
-  --input: #343941;
+  /* Same 3:1 requirement from the other direction — 3.46:1 on card, 3.02:1 on
+     secondary. */
+  --input: #656f7e;
   --ring: #9a9ea7;
 
   --tint-income: #16311f;
@@ -179,6 +189,21 @@
   .panel {
     @apply bg-card rounded-panel shadow-panel;
   }
+}
+
+/* `emoji-picker-react` ships #858585 as its one text colour, and every string it
+   draws — the search placeholder, the category labels, the preview caption —
+   derives from it. That is 3.69:1 on white and 3.41:1 on its own #f6f6f6 search
+   field, so all three fail SC 1.4.3. The library resolves the rest from
+   `--epr-text-color`, so repointing that single variable at our own
+   `--muted-foreground` (5.27:1 / 4.88:1) fixes them together.
+
+   Scoped through `.emoji-picker-host` rather than set on `.EmojiPickerReact`
+   alone: the library injects its own stylesheet at runtime, which lands after
+   this file, so an equal-specificity rule would lose the cascade. The extra
+   ancestor wins on specificity instead of reaching for !important. */
+.emoji-picker-host .EmojiPickerReact {
+  --epr-text-color: var(--muted-foreground);
 }
 
 @media (prefers-reduced-motion: reduce) {

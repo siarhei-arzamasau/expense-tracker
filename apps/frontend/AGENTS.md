@@ -72,19 +72,36 @@ spent sparingly — on the primary button, the sidebar account card, and the ico
   `globals.css` — add the third one there rather than re-typing its utilities.
 - **Controls are pill-shaped.** Buttons, inputs, selects, tabs and the pager are all `rounded-full`;
   surfaces are `rounded-panel` or `rounded-2xl`. A `rounded-md` control is off-system.
-- **Inputs are filled rather than outlined**, and grow a border only on focus. Six outlined boxes in
-  a row is the look this replaced.
+- **Inputs are filled rather than outlined, but they still carry a border at rest.** The fill is what
+  makes six fields in a row read as one form rather than six boxes, and that part of the intent
+  stands. What could not stand is the fill being the _only_ thing marking the control: `bg-secondary`
+  on a white card measures 1.11:1, so an empty input was invisible under SC 1.4.11, which wants 3:1
+  for the boundary that identifies a control. `border-input` is now on at rest — on `Input`, on the
+  four hand-written fields under `/transactions` and `/categories`, and on `Checkbox`, where an
+  unchecked box has no other affordance at all. Focus is still the ring plus the fill going white;
+  the border no longer changes, because it is already there.
 - **Contrast is measured against the canvas, not against a white panel.** `--muted-foreground` lands
   on both and the canvas is the darker surface, so a value tuned on `bg-card` reads ~0.7 lower out on
   the page — which is how `#6e727a` passed at 4.83:1 on a panel while failing at 4.16:1 under the
   auth taglines. `#686c74` is the first value on that hue ramp clearing 4.5:1 on canvas, secondary
   and card alike. Text tokens carry no alpha for the same reason: `muted-foreground/80` on a filled
   input is 3.05:1.
+- **`--input` answers to a ratio, not to taste.** It is the SC 1.4.11 boundary, so it has to clear
+  3:1 against every surface a control sits on — the white card, the control's own `bg-secondary`
+  fill, and the canvas. `#8c8983` is the lightest value on the warm-neutral ramp that clears all
+  three (3.49 / 3.14 / 3.00); the previous `#ded9cf` was 1.41:1 on card. Repointing the palette means
+  re-deriving it rather than picking something that looks right.
 - **`focus-visible:ring-ring/70` is the one alpha that works in both themes.** `--ring` is near-black
   in light and a light grey in dark, so the same utility has to clear 3:1 (SC 1.4.11) from opposite
   directions: `/25` is 1.73:1 light, and `/55` still fails dark at 2.73:1. Every control pairs it
   with `outline-none`, so lowering it leaves keyboard users with no visible focus at all — a
   regression no screenshot review will catch.
+- **`outline-none` obliges you to draw the ring yourself, including on things you did not think were
+  focusable.** Radix gives `Tabs.Content` `tabIndex={0}` unconditionally, so the panel on `/login` is
+  a real stop in the tab order between the trigger and the first field. It carried `outline-none`
+  with no ring for exactly that reason — nobody expects a panel to take focus — and a keyboard user
+  had no indication of where they were (SC 2.4.7). `outline-none` also suppresses the browser's own
+  ring, which is what would otherwise have covered for it.
 
 `AppShell` owns the canvas padding, and the sidebar's `sticky` offset and height are derived from it.
 Change one without the other and the sidebar drifts out of alignment as the page scrolls.
@@ -124,6 +141,39 @@ root layout supplying the `%s · Expense Tracker` template that completes them. 
 nothing loudly: the route falls back to the root default, and its tab, its history entry and its
 screen reader page announcement all read "Expense Tracker" like every other route.
 `src/app/route-titles.spec.ts` is the only thing that catches it.
+
+**`(app)/layout.tsx` carries the object form of `title` because it has children, and that is
+load-bearing.** A segment's `title` _replaces_ its parent's rather than merging with it, and a plain
+string carries no `template` — so `title: "Dashboard"` named `/` correctly while silently stripping
+`· Expense Tracker` from `/transactions`, `/categories` and `/profile`, the three routes nested
+beneath it. Any layout that both names itself and has routes below it has to restate the template.
+Asserting each `metadata.title` in isolation cannot see this, which is why `route-titles.spec.ts`
+resolves the chain the way Next.js does and asserts the rendered string.
+
+**A validation message has to be associated with its field, not merely rendered next to it.**
+react-hook-form moves focus to the first invalid field on submit, and focus announces the field's
+_name_ — so an unassociated message left a screen reader saying "Name, edit text" and never why the
+form refused (SC 3.3.1), with nothing announced when it appeared (SC 4.1.3). Every field error pairs
+`aria-invalid` and `aria-describedby` on the control with `role="alert"` and a matching `id` on the
+message. Equally, **the message must not live inside a wrapping `<label>`**: a label that contains
+both the control and the error folds the error into the field's accessible name, so the amount field
+announced as "Amount Amount is required" and repeated it on every refocus. Explicit `htmlFor`/`id` is
+why `add-transaction-dialog.tsx` no longer wraps.
+
+**`FormControl` names only ids that exist.** shadcn's original always puts the description id in
+`aria-describedby`, and no form in this app renders a `FormDescription` — so every field in the
+product pointed at an element that was never there. `FormItem` scans its children for a
+`FormDescription` and `FormControl` builds the attribute from what is actually present. Keep
+`FormDescription` a direct child of `FormItem`; nested inside a wrapper it will not be seen.
+
+**The `.emoji-picker-host` wrapper class exists only to win a cascade fight.** `emoji-picker-react`
+ships `#858585` as its one text colour and derives the search placeholder, the category labels and
+the preview caption from it — 3.69:1 on white, 3.41:1 on its own search field, so all three failed
+SC 1.4.3. Repointing `--epr-text-color` fixes them together, but the library injects its stylesheet
+at runtime, after `globals.css`, so a rule on `.EmojiPickerReact` alone loses the tie on order. The
+extra ancestor wins on specificity instead of reaching for `!important`. The picker's
+`aria-controls="epr-search-id"` still addresses an element it never renders; that one needs an
+upstream fix and cannot be reached from CSS.
 
 **`totalPages` is `Math.ceil(totalItems / pageSize)` and is therefore 0, not 1, for an empty result
 set.** Render the pager from `totalPages > 1`, never from a truthiness check.

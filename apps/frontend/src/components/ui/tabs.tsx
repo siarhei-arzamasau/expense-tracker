@@ -68,11 +68,21 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
   );
 }
 
+/**
+ * Radix gives the panel `tabIndex={0}` unconditionally, so it is a real stop in
+ * the tab order — Tab from the active trigger lands here before the first field
+ * inside it. `outline-none` on its own therefore left a keyboard user with no
+ * indication of where they were, and it also suppresses the UA ring that would
+ * otherwise have covered for it (SC 2.4.7). The ring has to be spelled out.
+ */
 function TabsContent({ className, ...props }: React.ComponentProps<typeof TabsPrimitive.Content>) {
   return (
     <TabsPrimitive.Content
       data-slot="tabs-content"
-      className={cn("flex-1 outline-none", className)}
+      className={cn(
+        "focus-visible:ring-ring/70 flex-1 rounded-2xl outline-none focus-visible:ring-[3px]",
+        className,
+      )}
       {...props}
     />
   );

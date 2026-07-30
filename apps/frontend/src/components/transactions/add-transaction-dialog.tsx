@@ -9,7 +9,7 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, X } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Dialog } from "radix-ui";
 import { z } from "zod";
@@ -70,6 +70,7 @@ export function AddTransactionDialog({
   triggerLabel = "Add transaction",
 }: AddTransactionDialogProps) {
   const [open, setOpen] = useState(false);
+  const fieldId = useId();
   const queryClient = useQueryClient();
   const {
     register,
@@ -157,42 +158,69 @@ export function AddTransactionDialog({
             </div>
           )}
 
+          {/* Explicit `htmlFor`/`id` rather than a wrapping <label>: a label
+              wrapping both the control and its error message folds that message
+              into the field's *accessible name*, so the amount field announced
+              as "Amount Amount is required" and kept saying it on every
+              refocus. The message belongs in `aria-describedby`, which is also
+              what makes `role="alert"` announce it when it appears. */}
           <form className="mt-6 space-y-4" onSubmit={handleSubmit(submit)} noValidate>
             <div className="grid grid-cols-2 gap-4">
-              <label className="space-y-2 text-[0.8125rem] font-semibold">
-                <span>Type</span>
+              <div className="space-y-2">
+                <label htmlFor={`${fieldId}-type`} className="block text-[0.8125rem] font-semibold">
+                  Type
+                </label>
                 <select
+                  id={`${fieldId}-type`}
                   {...register("type")}
-                  className="bg-secondary focus-visible:bg-background focus-visible:ring-ring/70 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
+                  className="bg-secondary border-input focus-visible:bg-background focus-visible:ring-ring/70 h-10 w-full rounded-full border px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:ring-[3px]"
                 >
                   <option value="EXPENSE">Expense</option>
                   <option value="INCOME">Income</option>
                 </select>
-              </label>
-              <label className="space-y-2 text-[0.8125rem] font-semibold">
-                <span>Amount</span>
+              </div>
+              <div className="space-y-2">
+                <label
+                  htmlFor={`${fieldId}-amount`}
+                  className="block text-[0.8125rem] font-semibold"
+                >
+                  Amount
+                </label>
                 <Input
+                  id={`${fieldId}-amount`}
                   type="text"
                   inputMode="decimal"
                   placeholder="0.00"
                   aria-invalid={!!errors.amount}
+                  aria-describedby={errors.amount ? `${fieldId}-amount-error` : undefined}
                   {...register("amount")}
                 />
                 {errors.amount && (
-                  <span className="text-destructive block text-xs font-medium">
+                  <p
+                    id={`${fieldId}-amount-error`}
+                    role="alert"
+                    className="text-destructive text-xs font-medium"
+                  >
                     {errors.amount.message}
-                  </span>
+                  </p>
                 )}
-              </label>
+              </div>
             </div>
 
-            <label className="block space-y-2 text-[0.8125rem] font-semibold">
-              <span>Category</span>
+            <div className="space-y-2">
+              <label
+                htmlFor={`${fieldId}-category`}
+                className="block text-[0.8125rem] font-semibold"
+              >
+                Category
+              </label>
               <select
+                id={`${fieldId}-category`}
                 {...register("categoryId")}
                 disabled={!hasCategories}
                 aria-invalid={!!errors.categoryId}
-                className="bg-secondary focus-visible:bg-background focus-visible:ring-ring/70 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px] disabled:opacity-45"
+                aria-describedby={errors.categoryId ? `${fieldId}-category-error` : undefined}
+                className="bg-secondary border-input focus-visible:bg-background focus-visible:ring-ring/70 h-10 w-full rounded-full border px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:ring-[3px] disabled:opacity-45"
               >
                 {!hasCategories && <option value="">No categories available</option>}
                 {categories.map((category) => (
@@ -203,31 +231,58 @@ export function AddTransactionDialog({
                 ))}
               </select>
               {errors.categoryId && (
-                <span className="text-destructive block text-xs">{errors.categoryId.message}</span>
+                <p
+                  id={`${fieldId}-category-error`}
+                  role="alert"
+                  className="text-destructive text-xs"
+                >
+                  {errors.categoryId.message}
+                </p>
               )}
-            </label>
+            </div>
 
-            <label className="block space-y-2 text-[0.8125rem] font-semibold">
-              <span>Date</span>
-              <Input type="date" aria-invalid={!!errors.date} {...register("date")} />
-              {errors.date && (
-                <span className="text-destructive block text-xs">{errors.date.message}</span>
-              )}
-            </label>
-
-            <label className="block space-y-2 text-[0.8125rem] font-semibold">
-              <span>
-                Description <span className="text-muted-foreground font-normal">(optional)</span>
-              </span>
+            <div className="space-y-2">
+              <label htmlFor={`${fieldId}-date`} className="block text-[0.8125rem] font-semibold">
+                Date
+              </label>
               <Input
+                id={`${fieldId}-date`}
+                type="date"
+                aria-invalid={!!errors.date}
+                aria-describedby={errors.date ? `${fieldId}-date-error` : undefined}
+                {...register("date")}
+              />
+              {errors.date && (
+                <p id={`${fieldId}-date-error`} role="alert" className="text-destructive text-xs">
+                  {errors.date.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor={`${fieldId}-description`}
+                className="block text-[0.8125rem] font-semibold"
+              >
+                Description <span className="text-muted-foreground font-normal">(optional)</span>
+              </label>
+              <Input
+                id={`${fieldId}-description`}
                 placeholder="What was this for?"
                 aria-invalid={!!errors.description}
+                aria-describedby={errors.description ? `${fieldId}-description-error` : undefined}
                 {...register("description")}
               />
               {errors.description && (
-                <span className="text-destructive block text-xs">{errors.description.message}</span>
+                <p
+                  id={`${fieldId}-description-error`}
+                  role="alert"
+                  className="text-destructive text-xs"
+                >
+                  {errors.description.message}
+                </p>
               )}
-            </label>
+            </div>
 
             {mutation.error && (
               <p className="text-destructive text-sm" role="alert">

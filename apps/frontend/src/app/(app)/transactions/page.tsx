@@ -97,7 +97,7 @@ function TransactionsPageContent() {
                 type="search"
                 defaultValue={search}
                 placeholder="e.g. groceries"
-                className="bg-background placeholder:text-muted-foreground focus-visible:ring-ring/70 h-10 w-full rounded-full border border-transparent pr-4 pl-10 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
+                className="bg-background border-input placeholder:text-muted-foreground focus-visible:ring-ring/70 h-10 w-full rounded-full border pr-4 pl-10 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:ring-[3px]"
               />
             </span>
           </label>
@@ -109,7 +109,7 @@ function TransactionsPageContent() {
               onChange={(event) =>
                 updateFilters({ type: event.target.value || undefined, page: 1 })
               }
-              className="bg-background focus-visible:ring-ring/70 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
+              className="bg-background border-input focus-visible:ring-ring/70 h-10 w-full rounded-full border px-4 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:ring-[3px]"
             >
               <option value="">All types</option>
               <option value="INCOME">Income</option>
@@ -124,7 +124,7 @@ function TransactionsPageContent() {
               onChange={(event) =>
                 updateFilters({ categoryId: event.target.value || undefined, page: 1 })
               }
-              className="bg-background focus-visible:ring-ring/70 h-10 w-full rounded-full border border-transparent px-4 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
+              className="bg-background border-input focus-visible:ring-ring/70 h-10 w-full rounded-full border px-4 text-sm font-normal transition-[border-color,box-shadow] outline-none focus-visible:ring-[3px]"
             >
               <option value="">All categories</option>
               {categoriesQuery.data?.map((category) => (

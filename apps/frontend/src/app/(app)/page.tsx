@@ -71,7 +71,10 @@ function SummaryCard({ label, amount, isPending, icon: Icon, tone, children }: S
       {isPending ? (
         <div className="bg-primary/8 mt-6 h-9 w-36 animate-pulse rounded-lg" />
       ) : amount === undefined ? (
-        <p className={`${classes.ink} mt-6 text-sm font-medium opacity-70`}>Unavailable</p>
+        // No `opacity-70`: the tint inks are picked to clear 4.5:1 on their own
+        // pastel at full strength and nowhere above it, so dimming them dropped
+        // this to 2.85:1 on expense and 3.35/3.42 on income and balance.
+        <p className={`${classes.ink} mt-6 text-sm font-medium`}>Unavailable</p>
       ) : (
         <p className="font-display mt-6 text-[1.75rem] leading-none font-bold tracking-tight tabular-nums sm:text-[2rem]">
           {formatAmount(amount)}

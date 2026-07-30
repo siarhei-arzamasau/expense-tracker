@@ -163,6 +163,38 @@ function ExampleForm({ onSubmit }: { onSubmit: (values: { email: string }) => vo
   );
 }
 
+/**
+ * The shape every form in this app actually uses: no `FormDescription`. shadcn's
+ * `FormControl` names the description id unconditionally, which left each of
+ * these fields pointing `aria-describedby` at an element that was never
+ * rendered.
+ */
+function DescriptionlessForm() {
+  const form = useForm<{ email: string }>({ defaultValues: { email: "" } });
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(vi.fn())}>
+        <FormField
+          control={form.control}
+          name="email"
+          rules={{ required: "Email is required" }}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input type="email" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit">Save</Button>
+      </form>
+    </Form>
+  );
+}
+
 describe("form primitives", () => {
   it("links the label, description, and validation message to the input", async () => {
     const user = userEvent.setup();
@@ -192,5 +224,27 @@ describe("form primitives", () => {
       expect.objectContaining({ type: "submit" }),
     );
     expect(screen.queryByText("Email is required")).not.toBeInTheDocument();
+  });
+
+  // Every IDREF in aria-describedby has to resolve. A dangling one is not
+  // "harmlessly ignored": it is broken ARIA on every field of every form in the
+  // product, and in the error case it sits beside the id that does resolve.
+  it("names no description when the field has none, rather than a dangling id", async () => {
+    const user = userEvent.setup();
+    render(<DescriptionlessForm />);
+
+    const input = screen.getByLabelText("Email");
+    expect(input).not.toHaveAttribute("aria-describedby");
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("Email is required");
+
+    // Only the message now — and the id it names is on screen.
+    const describedBy = input.getAttribute("aria-describedby");
+    expect(describedBy).toMatch(/form-item-message$/);
+    expect(describedBy).not.toContain("description");
+    for (const id of (describedBy ?? "").split(" ")) {
+      expect(document.getElementById(id)).not.toBeNull();
+    }
   });
 });

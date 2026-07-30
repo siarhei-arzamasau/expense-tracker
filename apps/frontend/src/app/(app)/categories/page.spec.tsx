@@ -328,4 +328,47 @@ describe("CategoriesPage", () => {
       expect(within(rowFor("Groceries")).getByText("3 transactions")).toBeInTheDocument();
     });
   });
+
+  describe("validation errors", () => {
+    /**
+     * react-hook-form moves focus to the first invalid field, and focus alone
+     * announces the field's *name* — so an unassociated message left a screen
+     * reader hearing "Name, edit text" and never learning why the form refused
+     * to submit. Rendering the text is not the property worth pinning; the
+     * association is, because the text passed a visual review either way.
+     */
+    it("associates the name error with the input rather than only rendering it", async () => {
+      const { user } = renderPage();
+      await screen.findByText("Groceries");
+
+      const addForm = formWithSubmit("Add category");
+      await user.click(within(addForm).getByRole("button", { name: "Add category" }));
+
+      const message = await within(addForm).findByRole("alert");
+      expect(message).toHaveTextContent("Name is required");
+
+      const input = within(addForm).getByLabelText("Name");
+      expect(input).toHaveAttribute("aria-invalid", "true");
+      expect(input.getAttribute("aria-describedby")).toBe(message.id);
+
+      // The name stays the label. An error folded into the accessible name is
+      // re-read on every refocus and cannot be cleared independently.
+      expect(input).toHaveAccessibleName("Name");
+    });
+
+    it("drops the association once the field is valid again", async () => {
+      const { user } = renderPage();
+      await screen.findByText("Groceries");
+
+      const addForm = formWithSubmit("Add category");
+      await user.click(within(addForm).getByRole("button", { name: "Add category" }));
+      await within(addForm).findByRole("alert");
+
+      await user.type(within(addForm).getByLabelText("Name"), "Utilities");
+      await waitFor(() => {
+        expect(within(addForm).queryByRole("alert")).not.toBeInTheDocument();
+      });
+      expect(within(addForm).getByLabelText("Name")).not.toHaveAttribute("aria-describedby");
+    });
+  });
 });

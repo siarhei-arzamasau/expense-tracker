@@ -47,6 +47,8 @@ interface CategoryFormProps {
 function CategoryForm({ category, error, isPending, onCancel, onSubmit }: CategoryFormProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerId = `category-icon-picker-${category?.id ?? "new"}`;
+  const nameId = `category-name-${category?.id ?? "new"}`;
+  const nameErrorId = `${nameId}-error`;
   const {
     register,
     handleSubmit,
@@ -72,19 +74,28 @@ function CategoryForm({ category, error, isPending, onCancel, onSubmit }: Catego
       noValidate
     >
       <div className="space-y-2">
-        <label
-          htmlFor={`category-name-${category?.id ?? "new"}`}
-          className="block text-[0.8125rem] font-semibold"
-        >
+        <label htmlFor={nameId} className="block text-[0.8125rem] font-semibold">
           Name
         </label>
+        {/* `aria-describedby` and `role="alert"` are what make this message
+            exist for a screen reader. react-hook-form moves focus to the first
+            invalid field on submit, but focus alone announces the name and
+            nothing else — without the association a reader was told "Name, edit
+            text" and never why the form refused to submit (SC 3.3.1), and the
+            message appearing announced nothing at all (SC 4.1.3). */}
         <input
-          id={`category-name-${category?.id ?? "new"}`}
-          className="bg-background placeholder:text-muted-foreground focus-visible:ring-ring/70 h-10 w-full rounded-full border border-transparent px-4 text-sm transition-[border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
+          id={nameId}
+          aria-invalid={!!errors.name}
+          aria-describedby={errors.name ? nameErrorId : undefined}
+          className="bg-background border-input placeholder:text-muted-foreground focus-visible:ring-ring/70 aria-invalid:border-destructive h-10 w-full rounded-full border px-4 text-sm transition-[border-color,box-shadow] outline-none focus-visible:ring-[3px]"
           placeholder="Groceries, Rent, Salary…"
           {...register("name")}
         />
-        {errors.name && <p className="text-destructive text-[0.8125rem]">{errors.name.message}</p>}
+        {errors.name && (
+          <p id={nameErrorId} role="alert" className="text-destructive text-[0.8125rem]">
+            {errors.name.message}
+          </p>
+        )}
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">
@@ -146,7 +157,10 @@ function CategoryForm({ category, error, isPending, onCancel, onSubmit }: Catego
       </div>
 
       {pickerOpen && (
-        <div id={pickerId} className="max-w-full overflow-hidden rounded-2xl">
+        // `emoji-picker-host` carries the contrast override in `globals.css`;
+        // the library's own stylesheet is injected at runtime and would win a
+        // tie on cascade order, so the override needs the extra ancestor.
+        <div id={pickerId} className="emoji-picker-host max-w-full overflow-hidden rounded-2xl">
           <EmojiPicker
             emojiStyle={"native" as EmojiStyle}
             width="100%"
@@ -308,7 +322,7 @@ export default function CategoriesPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search by name"
-              className="bg-secondary placeholder:text-muted-foreground focus-visible:bg-background focus-visible:ring-ring/70 h-10 w-56 rounded-full border border-transparent px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:border-input focus-visible:ring-[3px]"
+              className="bg-secondary border-input placeholder:text-muted-foreground focus-visible:bg-background focus-visible:ring-ring/70 h-10 w-56 rounded-full border px-4 text-sm font-normal transition-[background-color,border-color,box-shadow] outline-none focus-visible:ring-[3px]"
             />
           </label>
         </div>

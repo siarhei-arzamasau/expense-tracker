@@ -51,11 +51,12 @@ const useFormField = () => {
     throw new Error("useFormField should be used within <FormField>");
   }
 
-  const { id } = itemContext;
+  const { id, hasDescription } = itemContext;
 
   return {
     id,
     name: fieldContext.name,
+    hasDescription,
     formItemId: `${id}-form-item`,
     formDescriptionId: `${id}-form-item-description`,
     formMessageId: `${id}-form-item-message`,
@@ -65,16 +66,34 @@ const useFormField = () => {
 
 type FormItemContextValue = {
   id: string;
+  hasDescription: boolean;
 };
 
 const FormItemContext = React.createContext<FormItemContextValue>({} as FormItemContextValue);
 
-function FormItem({ className, ...props }: React.ComponentProps<"div">) {
+/**
+ * The children are scanned for a `FormDescription` so that `FormControl` can
+ * point `aria-describedby` at ids that actually exist. shadcn's original always
+ * names the description, and no form in this app renders one — which left every
+ * field in the product carrying an `aria-describedby` addressing nothing. A
+ * dangling IDREF is not merely ignored: in the error case it sits alongside the
+ * live message id, and it is the kind of thing an audit tool reports as broken
+ * ARIA on every field of every form.
+ *
+ * Synchronous, not an effect: the correct value is knowable at render, and an
+ * effect would ship one paint with the wrong attribute.
+ */
+function FormItem({ className, children, ...props }: React.ComponentProps<"div">) {
   const id = React.useId();
+  const hasDescription = React.Children.toArray(children).some(
+    (child) => React.isValidElement(child) && child.type === FormDescription,
+  );
 
   return (
-    <FormItemContext.Provider value={{ id }}>
-      <div data-slot="form-item" className={cn("grid gap-1.5", className)} {...props} />
+    <FormItemContext.Provider value={{ id, hasDescription }}>
+      <div data-slot="form-item" className={cn("grid gap-1.5", className)} {...props}>
+        {children}
+      </div>
     </FormItemContext.Provider>
   );
 }
@@ -94,13 +113,16 @@ function FormLabel({ className, ...props }: React.ComponentProps<typeof LabelPri
 }
 
 function FormControl({ ...props }: React.ComponentProps<typeof Slot.Root>) {
-  const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
+  const { error, hasDescription, formItemId, formDescriptionId, formMessageId } = useFormField();
+  const describedBy = [hasDescription ? formDescriptionId : null, error ? formMessageId : null]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <Slot.Root
       data-slot="form-control"
       id={formItemId}
-      aria-describedby={!error ? `${formDescriptionId}` : `${formDescriptionId} ${formMessageId}`}
+      aria-describedby={describedBy || undefined}
       aria-invalid={!!error}
       {...props}
     />

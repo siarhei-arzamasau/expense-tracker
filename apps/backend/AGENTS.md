@@ -52,6 +52,14 @@ and `@IsUUID` stay on the DTO and are never mirrored into the shared package, wh
 response _shapes_ only. `FindTransactionsQueryDto implements TransactionQuery` is what makes the
 pairing load-bearing — drop a filter on one side and `tsc` fails on the other.
 
+The `nestjs-best-practices` skill at `.claude/skills/nestjs-best-practices/SKILL.md` holds 40 NestJS
+rules, one file per rule under `rules/`. Read its "In this repository" preamble first — four of its
+rules contradict decisions documented below or in the root `AGENTS.md`, and the `micro-*` category does
+not apply to a single-app Turborepo. Most importantly, **`security-rate-limiting` must not be applied**:
+its "Incorrect" example is this codebase's `login` and `forgot-password` endpoints, and the absence of
+rate limiting here is a documented deliberate simplification, not an oversight. A generic best practice
+never outranks this file.
+
 ## Constraints that look like mistakes but are not
 
 **`typescript/consistent-type-imports` is explicitly off for NestJS.** Its autofix can rewrite

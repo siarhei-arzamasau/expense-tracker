@@ -52,11 +52,27 @@ dashboard's summary bars are drawn from `flowShares()` in that file rather than 
 in the page — a `Number()` call in a component is one the next person reuses for a figure that really
 is shown as currency.
 
+The `vercel-react-best-practices` skill at `.claude/skills/vercel-react-best-practices/SKILL.md` holds
+70 React/Next.js performance rules, one file per rule under `rules/`. Read its "In this repository"
+preamble first: this app is client components against an HTTP backend, so the whole server-side
+category (server actions, route handlers, RSC waterfalls) does not apply, and its data-fetching rule
+assumes SWR where we use TanStack Query. **A performance suggestion never overrides a documented
+invariant** — `placeholderData: keepPreviousData` and the render-time page clamp below exist for
+correctness and accessibility, and both look like removable overhead if you only read them as
+performance.
+
 ## Design system
 
 **The visual language lives in `src/app/globals.css` and nowhere else.** A warm paper canvas, white
 panels floating on it, three pastel tints that carry the money semantics, and one near-black ink
 spent sparingly — on the primary button, the sidebar account card, and the icon badges.
+
+The `ui-ux-pro-max` skill at `.claude/skills/ui-ux-pro-max/SKILL.md` is a searchable local database of
+UX guidelines, accessibility checks, and Next.js/shadcn/React stack advice — useful when designing or
+reviewing UI here. **It is a source of UX rules, not of palettes.** Its `--design-system` mode emits
+raw hex and its own token tables, which lose to this section every time; the skill's own "In this
+repository" preamble says so. Never run its `--persist` flag, which would stand up a second source of
+truth competing with `globals.css`.
 
 - **The tokens are the shadcn/ui names repointed at this palette**, so `shadcn add <component>` still
   produces something that matches. Reach for `bg-card`, `text-muted-foreground`, `bg-secondary`

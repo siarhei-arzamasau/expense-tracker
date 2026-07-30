@@ -28,6 +28,26 @@ Branching (GitHub Flow) and commit message rules (Conventional Commits 1.0.0) li
 commit message, or opening a pull request; it is the single source of truth for both, so add
 changes there rather than restating them here.
 
+There is also a vendored `git-commit` skill at `.claude/skills/git-commit/SKILL.md` — generic
+Conventional Commits background from `github/awesome-copilot`, kept as reference only. **It is not an
+alternative entry point**, and its own preamble defers to `commit`. It has no branching step, so
+following it would commit feature work straight to `main`, and it is silent on this repo's no-tool-attribution
+override. If the two ever conflict in practice, fix `git-commit` or delete it — never `commit`.
+
+## Code review
+
+Reviews happen in two places and they are complementary. **In CI**, every non-draft pull request from
+a non-bot author triggers `.github/workflows/claude-code-review.yml`, which runs
+`/code-review:code-review` against the PR — nothing to invoke by hand. **Locally, before pushing**, the
+`requesting-code-review` skill at `.claude/skills/requesting-code-review/SKILL.md` dispatches a
+reviewer subagent over a git range, which is the cheaper place to catch a problem.
+
+Base the range on `git merge-base origin/main HEAD`, not `HEAD~1` — a branch here usually carries
+several commits. And pass the reviewer the "Project Context" block from that skill's
+`code-reviewer.md`: it receives crafted context rather than session history, so without it the same
+documented decisions (no rate limiting, bearer token in `localStorage`) get reported as Critical
+findings on every single review.
+
 ## Project state
 
 Expense tracker: Turborepo + pnpm workspaces, Next.js 16 frontend, NestJS 11 backend, PostgreSQL 17 via Prisma 7.
